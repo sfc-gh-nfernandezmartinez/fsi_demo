@@ -1,9 +1,0 @@
-# Minimal Snowflake Streamlit Dependencies
-# Most packages are pre-installed in Snowflake
-
-name: fsi_analytics_dashboard
-channels:
-  - https://repo.anaconda.com/pkgs/snowflake
-
-dependencies:
-  - plotly

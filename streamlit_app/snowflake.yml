@@ -1,0 +1,8 @@
+definition_version: 1
+
+streamlit:
+  name: fsi_analytics_dashboard
+  stage: fsi_demo_stage
+  query_warehouse: TRANSFORMATION_WH_S
+  main_file: streamlit_app.py
+  title: "FSI Analytics Dashboard"
