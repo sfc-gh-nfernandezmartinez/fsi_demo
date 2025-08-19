@@ -11,7 +11,48 @@ USE DATABASE FSI_DEMO;
 USE SCHEMA RAW_DATA;
 
 -- =====================================================
--- 1. ENHANCED TRANSACTIONS TABLE WITH SOURCE TRACKING
+-- 1. MORTGAGE TABLE - FOUNDATIONAL LOAN DATA
+-- =====================================================
+
+-- Create mortgage table based on CSV structure
+DROP TABLE IF EXISTS MORTGAGE_TABLE;
+
+CREATE TABLE MORTGAGE_TABLE (
+    loan_id VARCHAR(255) PRIMARY KEY,
+    week_start_date DATE NOT NULL,
+    week INT NOT NULL,
+    ts VARCHAR(50),  -- Storing as VARCHAR due to MM:SS.s format
+    loan_type_name VARCHAR(255) NOT NULL,
+    loan_purpose_name VARCHAR(255) NOT NULL,
+    applicant_income_000s NUMBER(10,2) NOT NULL,
+    loan_amount_000s NUMBER(10,2) NOT NULL,
+    county_name VARCHAR(255) NOT NULL,
+    mortgageresponse INT NOT NULL,
+    created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+) COMMENT = 'Mortgage data from AWS S3 - foundational loan information';
+
+-- =====================================================
+-- 2. CUSTOMER TABLE - REGULAR TABLE (ICEBERG PENDING PERMISSIONS)
+-- =====================================================
+
+-- Create customer table (will migrate to Iceberg once external volume permissions resolved)
+DROP TABLE IF EXISTS CUSTOMER_TABLE;
+
+CREATE TABLE CUSTOMER_TABLE (
+    customer_id NUMBER(38,0) PRIMARY KEY,
+    loan_id VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+) COMMENT = 'Customer data - will migrate to Iceberg format once external volume permissions are configured';
+
+-- Note: Iceberg table creation requires external volume write permissions
+-- Future migration command (once permissions resolved):
+-- CREATE ICEBERG TABLE CUSTOMER_TABLE_ICEBERG (...) EXTERNAL_VOLUME = 'vol_fsi_demo' CATALOG = 'SNOWFLAKE' BASE_LOCATION = 'customer_data';
+
+-- =====================================================
+-- 3. ENHANCED TRANSACTIONS TABLE WITH SOURCE TRACKING
 -- =====================================================
 
 -- Drop and recreate table with source tracking for easy cleanup
@@ -29,13 +70,38 @@ CREATE TABLE TRANSACTIONS_TABLE (
 ) COMMENT = 'Transaction data with source tracking for easy real-time data cleanup';
 
 -- =====================================================
--- 2. HISTORICAL DATA INGESTION (EXISTING STAGE)
+-- 4. DATA INGESTION - MORTGAGE DATA FROM AWS S3
+-- =====================================================
+
+-- Load mortgage data from CSV file (EXISTING in AWS S3)
+COPY INTO FSI_DEMO.RAW_DATA.MORTGAGE_TABLE (
+    week_start_date, week, loan_id, ts, loan_type_name, 
+    loan_purpose_name, applicant_income_000s, loan_amount_000s, 
+    county_name, mortgageresponse
+) FROM (
+    SELECT 
+        $1::DATE,                    -- WEEK_START_DATE
+        $2::INT,                     -- WEEK  
+        $3::VARCHAR,                 -- LOAN_ID
+        $4::VARCHAR,                 -- TS
+        $5::VARCHAR,                 -- LOAN_TYPE_NAME
+        $6::VARCHAR,                 -- LOAN_PURPOSE_NAME
+        $7::NUMBER(10,2),            -- APPLICANT_INCOME_000S
+        $8::NUMBER(10,2),            -- LOAN_AMOUNT_000S
+        $9::VARCHAR,                 -- COUNTY_NAME
+        $10::INT                     -- MORTGAGERESPONSE
+    FROM @FSI_DEMO.RAW_DATA.STG_EXT_AWS/Mortgage_Data.csv
+) 
+FILE_FORMAT = (TYPE = 'CSV' FIELD_DELIMITER = ',' SKIP_HEADER = 1);
+
+-- =====================================================
+-- 5. DATA INGESTION - TRANSACTIONS HISTORICAL DATA
 -- =====================================================
 
 -- Using existing STG_EXT_AWS stage (no need to recreate)
 -- Stage already configured for AWS S3 access
 
--- Historical data loading query (TESTED AND WORKING)
+-- Historical transaction data loading query (TESTED AND WORKING)
 COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
     transaction_id, customer_id, transaction_date,
     transaction_amount, transaction_type, data_source
@@ -51,7 +117,41 @@ COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
 ) FILE_FORMAT = (TYPE = 'JSON');
 
 -- =====================================================
--- 3. REAL-TIME STREAMING SETUP (DIRECT INSERT)
+-- 5B. DATA INGESTION - CUSTOMER DATA (ICEBERG)
+-- =====================================================
+
+-- Customer data loading (via internal stage)
+-- Step 1: Create internal stage and JSON file format
+CREATE OR REPLACE STAGE customer_stage COMMENT = 'Internal stage for customer data JSON upload';
+CREATE OR REPLACE FILE FORMAT json_format TYPE = 'JSON' COMMENT = 'JSON file format for customer data';
+
+-- Step 2: Upload via PUT command (to internal stage)
+-- PUT file:///path/to/customer_data.json @customer_stage;
+
+-- Step 3: Load into customer table
+INSERT INTO FSI_DEMO.RAW_DATA.CUSTOMER_TABLE (
+    customer_id, loan_id, first_name, last_name, phone_number
+)
+SELECT 
+    $1:customer_id::NUMBER(38,0),
+    $1:loan_id::VARCHAR(255),
+    $1:first_name::VARCHAR(255),
+    $1:last_name::VARCHAR(255),
+    $1:phone_number::VARCHAR(255)
+FROM @customer_stage/customer_data.json.gz
+(FILE_FORMAT => json_format);
+
+-- Step 4: Update customer loan_ids to match actual mortgage data
+UPDATE CUSTOMER_TABLE 
+SET loan_id = CASE 
+    WHEN customer_id BETWEEN 1001 AND 1025 THEN '157154'  -- Rensselaer County
+    WHEN customer_id BETWEEN 1026 AND 1050 THEN '176033'  -- Queens County
+    WHEN customer_id BETWEEN 1051 AND 1075 THEN '361354'  -- Ulster County
+    WHEN customer_id BETWEEN 1076 AND 1100 THEN '363343'  -- Erie County
+END;
+
+-- =====================================================
+-- 6. REAL-TIME STREAMING SETUP (DIRECT INSERT)
 -- =====================================================
 
 -- Real-time streaming uses direct INSERTs via Python connector
@@ -62,7 +162,7 @@ COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
 -- and have ingestion_timestamp for tracking
 
 -- =====================================================
--- 4. GRANT PERMISSIONS FOR STREAMING (SIMPLIFIED)
+-- 7. GRANT PERMISSIONS (SIMPLIFIED)
 -- =====================================================
 
 -- Permissions for direct INSERT streaming (already covered in foundation setup)
@@ -71,7 +171,41 @@ COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
 -- Additional permissions already granted in 01_foundation_setup.sql
 
 -- =====================================================
--- 5. MONITORING AND MANAGEMENT QUERIES
+-- 8. MONITORING AND MANAGEMENT QUERIES
+-- =====================================================
+
+-- Check mortgage data ingestion
+SELECT 
+    COUNT(*) as total_mortgages,
+    COUNT(DISTINCT loan_id) as unique_loans,
+    COUNT(DISTINCT county_name) as unique_counties,
+    MIN(week_start_date) as earliest_week,
+    MAX(week_start_date) as latest_week,
+    ROUND(AVG(loan_amount_000s), 2) as avg_loan_amount
+FROM MORTGAGE_TABLE;
+
+-- Check customer data (Iceberg table)
+SELECT 
+    COUNT(*) as total_customers,
+    COUNT(DISTINCT loan_id) as customers_with_loans,
+    COUNT(DISTINCT SUBSTR(phone_number, 1, 3)) as unique_area_codes
+FROM CUSTOMER_TABLE;
+
+-- Verify data relationships
+SELECT 
+    'CUSTOMERS_WITH_MORTGAGES' as metric,
+    COUNT(*) as count
+FROM CUSTOMER_TABLE c
+INNER JOIN MORTGAGE_TABLE m ON c.loan_id = m.loan_id
+UNION ALL
+SELECT 
+    'CUSTOMERS_WITH_TRANSACTIONS' as metric,
+    COUNT(DISTINCT t.customer_id) as count
+FROM TRANSACTIONS_TABLE t
+INNER JOIN CUSTOMER_TABLE c ON t.customer_id = c.customer_id;
+
+-- =====================================================
+-- 9. MONITORING AND MANAGEMENT QUERIES (TRANSACTIONS)
 -- =====================================================
 
 -- Check ingestion status
@@ -97,7 +231,7 @@ WHERE data_source = 'STREAMING'
   AND DATE(ingestion_timestamp) = CURRENT_DATE();
 
 -- =====================================================
--- 6. CLEANUP OPERATIONS
+-- 10. CLEANUP OPERATIONS
 -- =====================================================
 
 -- Delete today's streaming data (for demo reset)
@@ -112,48 +246,47 @@ WHERE data_source = 'STREAMING'
 -- TRUNCATE TABLE TRANSACTIONS_TABLE;
 
 -- =====================================================
--- 7. SAMPLE DATA QUERIES
+-- 11. SAMPLE DATA QUERIES
 -- =====================================================
 
--- View recent streaming transactions
+-- Sample mortgage data with customer info
 SELECT 
-    transaction_id,
-    customer_id,
-    transaction_date,
-    transaction_amount,
-    transaction_type,
-    data_source,
-    ingestion_timestamp
-FROM TRANSACTIONS_TABLE 
-WHERE data_source = 'STREAMING'
-ORDER BY ingestion_timestamp DESC
+    m.loan_id,
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    m.loan_type_name,
+    m.loan_purpose_name,
+    m.loan_amount_000s,
+    m.county_name
+FROM MORTGAGE_TABLE m
+LEFT JOIN CUSTOMER_TABLE c ON m.loan_id = c.loan_id
+ORDER BY m.loan_amount_000s DESC
 LIMIT 10;
 
--- Compare historical vs streaming patterns
+-- Customer transaction summary
 SELECT 
-    data_source,
-    transaction_type,
-    COUNT(*) as transaction_count,
-    ROUND(AVG(transaction_amount), 2) as avg_amount,
-    ROUND(STDDEV(transaction_amount), 2) as amount_stddev
-FROM TRANSACTIONS_TABLE
-GROUP BY data_source, transaction_type
-ORDER BY data_source, transaction_count DESC;
-
--- Anomaly detection (amounts > $10k)
-SELECT 
-    transaction_id,
-    customer_id,
-    transaction_amount,
-    transaction_type,
-    data_source,
-    ingestion_timestamp
-FROM TRANSACTIONS_TABLE 
-WHERE transaction_amount > 10000
-ORDER BY transaction_amount DESC;
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    c.loan_id,
+    COUNT(t.transaction_id) as transaction_count,
+    ROUND(SUM(t.transaction_amount), 2) as total_amount
+FROM CUSTOMER_TABLE c
+LEFT JOIN TRANSACTIONS_TABLE t ON c.customer_id = t.customer_id
+GROUP BY c.customer_id, c.first_name, c.last_name, c.loan_id
+ORDER BY transaction_count DESC
+LIMIT 10;
 
 -- =====================================================
--- 8. PERFORMANCE MONITORING
+-- 12. TRANSACTION-SPECIFIC SAMPLE QUERIES
+-- =====================================================
+
+
+
+
+-- =====================================================
+-- 13. PERFORMANCE MONITORING
 -- =====================================================
 
 -- Check warehouse utilization
