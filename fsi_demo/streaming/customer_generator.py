@@ -75,15 +75,20 @@ class CustomerGenerator:
         number = f"{random.randint(1000, 9999)}"
         return f"({area_code}) {exchange}-{number}"
 
-    def generate_customer(self, customer_id, loan_id):
+    def generate_customer(self, customer_id, loan_record_id=None):
         """Generate a single customer record"""
-        return {
+        customer = {
             'customer_id': customer_id,
-            'loan_id': str(loan_id),  # Ensure string format to match mortgage data
             'first_name': random.choice(self.first_names),
             'last_name': random.choice(self.last_names),
             'phone_number': self.generate_phone_number()
         }
+        
+        # Add loan_record_id only if customer has a mortgage (1001-5800)
+        if loan_record_id is not None:
+            customer['loan_record_id'] = loan_record_id
+            
+        return customer
 
     def get_sample_loan_ids(self, num_loans=100):
         """
@@ -104,25 +109,33 @@ class CustomerGenerator:
         # Return a sample ensuring we have enough for our customers
         return random.sample(all_loans, min(num_loans, len(all_loans)))
 
-    def generate_customers(self, num_customers=100):
-        """Generate a dataset of customers with loan associations"""
+    def generate_customers(self, num_customers=5000):
+        """Generate a dataset of customers with 1:1 mortgage mapping"""
         console.print(f"🏦 Generating {num_customers} customer records...")
         
-        # Customer IDs from 1001-1100 (matching transaction generator range)
+        # Customer IDs from 1001-6000 (matching new transaction generator range)
         customer_ids = list(range(1001, 1001 + num_customers))
-        
-        # Get sample loan IDs (some customers may share loans)
-        available_loan_ids = self.get_sample_loan_ids(80)  # 80 unique loans for 100 customers
         
         customers = []
         for i, customer_id in track(enumerate(customer_ids), description="Generating customers"):
-            # Some customers share loans (family members, co-signers)
-            loan_id = random.choice(available_loan_ids)
-            customer = self.generate_customer(customer_id, loan_id)
+            # 1:1 mapping: customers 1001-5800 get mortgage applications (loan_record_id 1-4800)
+            # customers 5801-6000 have no mortgages (realistic scenario)
+            if customer_id <= 5800:
+                # Map customer_id 1001->loan_record_id 1, customer_id 1002->loan_record_id 2, etc.
+                loan_record_id = customer_id - 1000  # customer 1001 -> loan_record_id 1
+                customer = self.generate_customer(customer_id, loan_record_id)
+            else:
+                # Customers without mortgages (5801-6000)
+                customer = self.generate_customer(customer_id, None)
+            
             customers.append(customer)
             
+        customers_with_mortgages = len([c for c in customers if 'loan_record_id' in c])
+        customers_without_mortgages = len(customers) - customers_with_mortgages
+        
         console.print(f"✅ Generated {len(customers)} customers")
-        console.print(f"📊 Using {len(set(c['loan_id'] for c in customers))} unique loan IDs")
+        console.print(f"🏠 {customers_with_mortgages} customers with mortgages (1001-5800)")
+        console.print(f"💰 {customers_without_mortgages} customers without mortgages (5801-6000)")
         return customers
 
     def save_to_json(self, customers, filename):
@@ -139,16 +152,23 @@ class CustomerGenerator:
         return output_path
 
     def generate_insert_statements(self, customers):
-        """Generate SQL INSERT statements for Iceberg table"""
+        """Generate SQL INSERT statements for customer table"""
         statements = []
         statements.append("-- Generated customer data INSERT statements")
         statements.append(f"-- Generated: {datetime.now().isoformat()}")
-        statements.append("-- Target: CUSTOMER_TABLE (Iceberg)")
+        statements.append("-- Target: CUSTOMER_TABLE")
+        statements.append("-- Note: customers 1001-5800 have mortgages, 5801-6000 do not")
         statements.append("")
         
         for customer in customers:
-            sql = f"""INSERT INTO CUSTOMER_TABLE (customer_id, loan_id, first_name, last_name, phone_number) 
-VALUES ({customer['customer_id']}, '{customer['loan_id']}', '{customer['first_name']}', '{customer['last_name']}', '{customer['phone_number']}');"""
+            if 'loan_record_id' in customer:
+                # Customer with mortgage
+                sql = f"""INSERT INTO CUSTOMER_TABLE (customer_id, first_name, last_name, phone_number, loan_record_id) 
+VALUES ({customer['customer_id']}, '{customer['first_name']}', '{customer['last_name']}', '{customer['phone_number']}', {customer['loan_record_id']});"""
+            else:
+                # Customer without mortgage
+                sql = f"""INSERT INTO CUSTOMER_TABLE (customer_id, first_name, last_name, phone_number) 
+VALUES ({customer['customer_id']}, '{customer['first_name']}', '{customer['last_name']}', '{customer['phone_number']}');"""
             statements.append(sql)
             
         return '\n'.join(statements)
@@ -157,18 +177,20 @@ VALUES ({customer['customer_id']}, '{customer['loan_id']}', '{customer['first_na
         """Display sample of generated customers in a nice table"""
         table = Table(title=f"Sample Customer Data (showing {num_samples} of {len(customers)})")
         table.add_column("Customer ID", style="cyan")
-        table.add_column("Loan ID", style="green") 
+        table.add_column("Loan Record ID", style="green") 
         table.add_column("First Name", style="yellow")
         table.add_column("Last Name", style="magenta")
         table.add_column("Phone Number", style="blue")
+        table.add_column("Has Mortgage", style="red")
         
         for customer in customers[:num_samples]:
             table.add_row(
                 str(customer['customer_id']),
-                customer['loan_id'],
+                str(customer.get('loan_record_id', 'None')),
                 customer['first_name'],
                 customer['last_name'],
-                customer['phone_number']
+                customer['phone_number'],
+                "Yes" if 'loan_record_id' in customer else "No"
             )
             
         console.print(table)
@@ -179,7 +201,7 @@ def cli():
     pass
 
 @cli.command()
-@click.option('--customers', '-c', default=100, help='Number of customers to generate')
+@click.option('--customers', '-c', default=5000, help='Number of customers to generate')
 @click.option('--output-dir', '-o', default='Cursor_Tests', help='Output directory for files')
 @click.option('--preview', is_flag=True, help='Show preview of generated data')
 def generate(customers, output_dir, preview):
@@ -209,16 +231,20 @@ def generate(customers, output_dir, preview):
     console.print(f"📄 Generated SQL INSERT statements: {sql_file}")
     
     # Summary
+    customers_with_mortgages = len([c for c in customer_data if 'loan_record_id' in c])
+    customers_without_mortgages = len(customer_data) - customers_with_mortgages
+    
     console.print("\n🎯 [bold green]Customer Data Generation Complete![/bold green]")
     console.print(f"📊 Generated: {len(customer_data)} customers")
+    console.print(f"🏠 With mortgages: {customers_with_mortgages} (customers 1001-5800)")
+    console.print(f"💰 Without mortgages: {customers_without_mortgages} (customers 5801-6000)")
     console.print(f"📁 Files saved to: {output_dir}")
-    console.print(f"🔗 Loan IDs range: {min(c['loan_id'] for c in customer_data)} - {max(c['loan_id'] for c in customer_data)}")
     console.print(f"👥 Customer IDs: 1001-{1000 + len(customer_data)}")
     
     console.print("\n📋 [bold blue]Next Steps:[/bold blue]")
-    console.print("1. Upload JSON to AWS S3: aws s3 cp customer_data.json s3://fsi-demo-nfm/")
-    console.print("2. Run Iceberg table creation in 02_ingestion_setup.sql")
-    console.print("3. Insert data into CUSTOMER_TABLE using generated SQL")
+    console.print("1. Upload JSON to internal stage: PUT file:///.../customer_data.json @customer_stage;")
+    console.print("2. Load data into CUSTOMER_TABLE using generated SQL")
+    console.print("3. Verify 1:1 relationship with MORTGAGE_TABLE loan_record_id")
 
 @cli.command()
 @click.argument('filename')
@@ -231,8 +257,11 @@ def preview(filename):
     generator = CustomerGenerator()
     generator.display_sample(customers, 15)
     
+    customers_with_mortgages = len([c for c in customers if 'loan_record_id' in c])
+    
     console.print(f"\n📊 Total customers in file: {len(customers)}")
-    console.print(f"🔗 Unique loan IDs: {len(set(c['loan_id'] for c in customers))}")
+    console.print(f"🏠 With mortgages: {customers_with_mortgages}")
+    console.print(f"💰 Without mortgages: {len(customers) - customers_with_mortgages}")
     console.print(f"👥 Customer ID range: {min(c['customer_id'] for c in customers)}-{max(c['customer_id'] for c in customers)}")
 
 if __name__ == '__main__':

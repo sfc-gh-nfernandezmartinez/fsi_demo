@@ -13,8 +13,8 @@ class TransactionGenerator:
     """Generates realistic transaction data for FSI demo"""
     
     def __init__(self):
-        # Customer and loan configuration (100 customers, 1:1 mapping)
-        self.customer_range = range(1001, 1101)  # 100 customers: 1001-1100
+        # Customer and loan configuration (5000 customers, with mortgage mapping)
+        self.customer_range = range(1001, 6001)  # 5000 customers: 1001-6000
         
         # Realistic leisure/lifestyle transaction types with weights
         self.transaction_types = [
@@ -69,8 +69,8 @@ class TransactionGenerator:
     
     def generate_transaction(self, transaction_date: datetime, transaction_id: int = None) -> Dict[str, Any]:
         """Generate a single transaction record"""
-        # Select customer (loan_id will be derived from customer_id in queries)
-        customer_id = random.choice(self.customer_range)
+        # Select customer (loan_record_id will be derived from customer_id 1001-5800 only)
+        customer_id = random.choice(list(self.customer_range))
         
         # Select transaction type (weighted random)
         transaction_type = random.choices(

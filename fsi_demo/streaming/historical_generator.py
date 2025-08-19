@@ -18,7 +18,7 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"🏦 FSI Demo - Historical Transaction Generator")
     print(f"📅 Generating {days} days of historical data...")
     
-    transactions = generator.generate_historical_data(days)
+    transactions = generator.generate_historical_data(days, transactions_per_day=548)
     
     # Statistics
     total_amount = sum(t['transaction_amount'] for t in transactions)
@@ -28,7 +28,7 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"   📝 Total transactions: {len(transactions):,}")
     print(f"   💰 Total amount: ${total_amount:,.2f}")
     print(f"   🔥 Anomalies: {anomaly_count:,} ({anomaly_count/len(transactions)*100:.1f}%)")
-    print(f"   👥 Customers: 1001-1100 (100 customers)")
+    print(f"   👥 Customers: 1001-6000 (5000 customers)")
     print(f"   🏷️  Transaction types: {len(generator.transaction_types)} types")
     
     # Set default output file if not provided
