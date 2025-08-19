@@ -1,0 +1,15 @@
+# Snowflake Integration
+snowflake-connector-python>=3.7.0
+snowflake-cli>=3.0.0
+
+# CLI Framework
+click>=8.0.0
+rich>=13.0.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+python-dateutil>=2.8.0
+
+# Development
+python-dotenv>=1.0.0

@@ -1,0 +1,71 @@
+# Security - Never commit credentials or tokens
+*.env
+.env*
+**/secrets.toml
+**/*.p8
+**/*.pem
+**/connections.toml
+**/profiles.yml
+**/*token*
+**/*password*
+**/*secret*
+
+# User Rules - Exclude References folder (internal only)
+References/
+Resources/
+
+# Cursor Designs - Project documentation (excluded from git)
+Cursor_Designs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Snowflake
+*.log
+logs/
+
+# dbt
+target/
+dbt_packages/
+logs/
