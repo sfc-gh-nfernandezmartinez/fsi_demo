@@ -2,8 +2,8 @@ fsi_demo:
   outputs:
     dev:
       type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      account: ""
+      user: ""
       warehouse: TRANSFORMATION_WH_S
       database: FSI_DEMO
       schema: TRANSFORMED
