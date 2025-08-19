@@ -2,10 +2,11 @@ fsi_demo:
   outputs:
     dev:
       type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
       warehouse: TRANSFORMATION_WH_S
       database: FSI_DEMO
       schema: TRANSFORMED
       role: ACCOUNTADMIN
-      # For Snowflake native dbt - simplified config
       threads: 1
   target: dev
