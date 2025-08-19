@@ -1,0 +1,11 @@
+fsi_demo:
+  outputs:
+    dev:
+      type: snowflake
+      warehouse: TRANSFORMATION_WH_S
+      database: FSI_DEMO
+      schema: TRANSFORMED
+      role: data_engineer_role
+      account: ""
+      user: ""
+  target: dev
