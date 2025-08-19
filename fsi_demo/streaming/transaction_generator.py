@@ -50,9 +50,7 @@ class TransactionGenerator:
         self.anomaly_probability = 0.05  # 5% chance
         self.anomaly_amount_range = (25000, 75000)  # Large amounts
         
-    def get_loan_id(self, customer_id: int) -> str:
-        """Generate loan_id using 1:1 customer mapping"""
-        return f"LOAN_{customer_id:06d}"
+
     
     def generate_amount(self, transaction_type: str, is_anomaly: bool = False) -> float:
         """Generate transaction amount based on type and anomaly flag"""
@@ -71,9 +69,8 @@ class TransactionGenerator:
     
     def generate_transaction(self, transaction_date: datetime, transaction_id: int = None) -> Dict[str, Any]:
         """Generate a single transaction record"""
-        # Select customer and loan
+        # Select customer (loan_id will be derived from customer_id in queries)
         customer_id = random.choice(self.customer_range)
-        loan_id = self.get_loan_id(customer_id)
         
         # Select transaction type (weighted random)
         transaction_type = random.choices(
@@ -96,7 +93,6 @@ class TransactionGenerator:
         return {
             "transaction_id": transaction_id,
             "customer_id": customer_id,
-            "loan_id": loan_id,
             "transaction_date": transaction_date.strftime("%Y-%m-%d"),
             "transaction_amount": amount,
             "transaction_type": transaction_type,
