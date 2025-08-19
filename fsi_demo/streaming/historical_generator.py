@@ -47,7 +47,7 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"✅ Historical data saved successfully!")
     print(f"\n🚀 Ready to load into Snowflake:")
     print(f"   snow sql --connection nfm_demo_keypair --query \"")
-    print(f"   PUT file://{os.path.abspath(output_file)} @FSI_DEMO.RAW_DATA.temp_stage;")
+    print(f"   PUT file://{os.path.abspath(output_file)} @FSI_DEMO.RAW_DATA.STG_EXT_AWS;")
     print(f"   COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (")
     print(f"       transaction_id, customer_id, transaction_date,")
     print(f"       transaction_amount, transaction_type, data_source")
@@ -55,7 +55,7 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"       SELECT \\$1:transaction_id::NUMBER, \\$1:customer_id::NUMBER,")
     print(f"              \\$1:transaction_date::DATE, \\$1:transaction_amount::NUMBER(10,2),")
     print(f"              \\$1:transaction_type::VARCHAR, \\$1:data_source::VARCHAR")
-    print(f"       FROM @FSI_DEMO.RAW_DATA.temp_stage/{os.path.basename(output_file)}.gz")
+    print(f"       FROM @FSI_DEMO.RAW_DATA.STG_EXT_AWS/{os.path.basename(output_file)}")
     print(f"   ) FILE_FORMAT = (TYPE = 'JSON');\"")
     
     return output_file, transactions
