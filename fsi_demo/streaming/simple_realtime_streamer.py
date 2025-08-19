@@ -170,6 +170,10 @@ class SimpleRealtimeStreamer:
             return False
         
         try:
+            # Add data_source to transaction for consistency with historical data
+            enhanced_transaction = transaction.copy()
+            enhanced_transaction['data_source'] = 'STREAMING'
+            
             # Direct INSERT for real-time streaming
             cursor = self.sf_connection.cursor()
             insert_query = """
@@ -177,10 +181,10 @@ class SimpleRealtimeStreamer:
                 transaction_id, customer_id, transaction_date,
                 transaction_amount, transaction_type, data_source
             ) VALUES (%(transaction_id)s, %(customer_id)s, %(transaction_date)s,
-                     %(transaction_amount)s, %(transaction_type)s, 'STREAMING')
+                     %(transaction_amount)s, %(transaction_type)s, %(data_source)s)
             """
             
-            cursor.execute(insert_query, transaction)
+            cursor.execute(insert_query, enhanced_transaction)
             cursor.close()
             
             return True

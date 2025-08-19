@@ -39,8 +39,9 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"\n💾 Saving to: {output_file}")
     with open(output_file, 'w') as f:
         for transaction in transactions:
-            # Remove debug fields for database insert
+            # Remove debug fields and add data_source for database insert
             db_transaction = {k: v for k, v in transaction.items() if k != 'is_anomaly'}
+            db_transaction['data_source'] = 'HISTORICAL'  # Mark as historical data
             f.write(json.dumps(db_transaction) + '\n')
     
     print(f"✅ Historical data saved successfully!")
@@ -49,11 +50,11 @@ def generate_historical_data(days: int = 365, output_file: str = None):
     print(f"   PUT file://{os.path.abspath(output_file)} @FSI_DEMO.RAW_DATA.temp_stage;")
     print(f"   COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (")
     print(f"       transaction_id, customer_id, transaction_date,")
-    print(f"       transaction_amount, transaction_type")
+    print(f"       transaction_amount, transaction_type, data_source")
     print(f"   ) FROM (")
     print(f"       SELECT \\$1:transaction_id::NUMBER, \\$1:customer_id::NUMBER,")
     print(f"              \\$1:transaction_date::DATE, \\$1:transaction_amount::NUMBER(10,2),")
-    print(f"              \\$1:transaction_type::VARCHAR")
+    print(f"              \\$1:transaction_type::VARCHAR, \\$1:data_source::VARCHAR")
     print(f"       FROM @FSI_DEMO.RAW_DATA.temp_stage/{os.path.basename(output_file)}.gz")
     print(f"   ) FILE_FORMAT = (TYPE = 'JSON');\"")
     
