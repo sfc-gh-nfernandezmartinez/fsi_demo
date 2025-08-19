@@ -28,9 +28,9 @@ def cli():
 def start(rate, anomaly_rate, duration):
     """Start streaming transactions to Snowflake"""
     try:
-        from real_time_streamer import TransactionStreamer
+        from simple_realtime_streamer import SimpleRealtimeStreamer
         
-        streamer = TransactionStreamer(rate=rate, anomaly_rate=anomaly_rate)
+        streamer = SimpleRealtimeStreamer(rate=rate, anomaly_rate=anomaly_rate)
         streamer.stream_transactions(duration_seconds=duration)
         
     except ImportError as e:
@@ -59,10 +59,10 @@ def historical(days, output):
 def cleanup():
     """Clean up today's transaction data"""
     try:
-        from real_time_streamer import TransactionStreamer
+        from simple_realtime_streamer import SimpleRealtimeStreamer
         
-        streamer = TransactionStreamer()
-        streamer.cleanup_today_data()
+        streamer = SimpleRealtimeStreamer()
+        streamer.cleanup_streaming_data()
         
     except ImportError as e:
         console.print(f"❌ [red]Module import error: {e}[/red]")
