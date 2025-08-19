@@ -9,7 +9,7 @@ models:
   fsi_demo:
     staging:
       +materialized: view
-      +schema: transformed
+      +schema: TRANSFORMED
     marts:
       +materialized: table
-      +schema: analytics
+      +schema: ANALYTICS

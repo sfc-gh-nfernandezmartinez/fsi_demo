@@ -6,7 +6,7 @@ fsi_demo:
       user: ""
       warehouse: TRANSFORMATION_WH_S
       database: FSI_DEMO
-      schema: TRANSFORMED
+      schema: PUBLIC
       role: ACCOUNTADMIN
       threads: 1
   target: dev
