@@ -9,7 +9,8 @@ models:
   fsi_demo:
     staging:
       +materialized: view
-      +schema: TRANSFORMED
+      # Uses base TRANSFORMED schema directly
     marts:
       +materialized: table
-      +schema: ANALYTICS
+      # Need custom schema override for ANALYTICS
+      +schema: analytics
