@@ -1,0 +1,24 @@
+# Snowflake Streamlit App Dependencies
+# This file specifies the Python packages required for the FSI Analytics Dashboard
+
+name: fsi_analytics_dashboard
+channels:
+  - snowflake
+  - conda-forge
+
+dependencies:
+  # Core Streamlit (provided by Snowflake)
+  - streamlit
+  
+  # Data manipulation
+  - pandas>=1.5.0
+  - numpy>=1.21.0
+  
+  # Visualization  
+  - plotly>=5.15.0
+  
+  # Snowflake integration (provided by Snowflake)
+  - snowflake-snowpark-python
+  
+  # Additional utilities
+  - python-dateutil>=2.8.0
