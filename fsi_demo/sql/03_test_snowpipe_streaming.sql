@@ -15,9 +15,8 @@ USE SCHEMA RAW_DATA;
 -- Based on the Java code, it expects a single RECORD_CONTENT column for JSON
 DROP TABLE IF EXISTS CDC_STREAMING_TABLE;
 CREATE TABLE CDC_STREAMING_TABLE (
-    RECORD_CONTENT VARIANT,
-    INGESTION_TIMESTAMP TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
-) COMMENT = 'Test table for CDCSimulatorApp - Snowpipe Streaming demo';
+    RECORD_CONTENT VARIANT
+) COMMENT = 'FSI CDC Streaming Table - optimized for Snowpipe Streaming demos';
 
 -- =====================================================
 -- 2. VERIFY EXISTING DATA  
@@ -53,10 +52,13 @@ SELECT COUNT(*) as cdc_records FROM CDC_STREAMING_TABLE;
 
 -- View recent CDC records
 SELECT 
-    RECORD_CONTENT,
-    INGESTION_TIMESTAMP
+    RECORD_CONTENT:transaction:action::STRING as action,
+    RECORD_CONTENT:transaction:record_after:customer_id::NUMBER as customer_id,
+    RECORD_CONTENT:transaction:record_after:transaction_type::STRING as transaction_type,
+    RECORD_CONTENT:transaction:record_after:transaction_amount::NUMBER as amount,
+    RECORD_CONTENT:transaction:committed_at::NUMBER as committed_at
 FROM CDC_STREAMING_TABLE 
-ORDER BY INGESTION_TIMESTAMP DESC 
+ORDER BY RECORD_CONTENT:transaction:transaction_id::NUMBER DESC
 LIMIT 10;
 
 -- Parse CDC JSON structure
