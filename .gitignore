@@ -70,5 +70,8 @@ target/
 dbt_packages/
 logs/
 
+# SnowCLI
+streamlit_app/output/
+
 # Test data files (internal testing only)
 Cursor_Tests/
