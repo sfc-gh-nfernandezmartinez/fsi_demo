@@ -1,9 +1,12 @@
 # Snowflake Integration
 snowflake-connector-python>=3.7.0
 snowflake-cli>=3.0.0
-snowflake-ingest>=2.0.0
+snowflake-ingest>=2.0.0  # For Snowpipe streaming
 cryptography>=3.4.0
 toml>=0.10.0
+
+# Additional for Snowpipe streaming
+pathlib2>=2.3.0  # For Path handling in older Python versions
 
 # CLI Framework
 click>=8.0.0
