@@ -5,7 +5,8 @@ fsi_demo:
       warehouse: TRANSFORMATION_WH_S
       database: FSI_DEMO
       schema: TRANSFORMED
-      role: data_engineer_role
+      # Use SYSADMIN - most workspace users have this role
+      role: SYSADMIN
       account: ""
       user: ""
   target: dev
