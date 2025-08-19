@@ -29,71 +29,46 @@ CREATE TABLE TRANSACTIONS_TABLE (
 ) COMMENT = 'Transaction data with source tracking for easy real-time data cleanup';
 
 -- =====================================================
--- 2. HISTORICAL DATA INGESTION (AWS S3)
+-- 2. HISTORICAL DATA INGESTION (EXISTING STAGE)
 -- =====================================================
 
--- Create external stage for AWS S3 historical data
-CREATE OR REPLACE STAGE historical_data_stage
-    URL = 's3://your-bucket/fsi-demo/historical/'
-    -- CREDENTIALS = (AWS_KEY_ID = 'your_key' AWS_SECRET_KEY = 'your_secret')
-    FILE_FORMAT = (
-        TYPE = 'JSON'
-        COMPRESSION = 'GZIP'
-    )
-    COMMENT = 'External stage for historical transaction data from AWS S3';
+-- Using existing STG_EXT_AWS stage (no need to recreate)
+-- Stage already configured for AWS S3 access
 
--- Historical data loading query (run once)
--- COPY INTO TRANSACTIONS_TABLE (
---     transaction_id, customer_id, transaction_date, 
---     transaction_amount, transaction_type, data_source
--- ) FROM (
---     SELECT 
---         $1:transaction_id::NUMBER,
---         $1:customer_id::NUMBER,
---         $1:transaction_date::DATE,
---         $1:transaction_amount::NUMBER(10,2),
---         $1:transaction_type::VARCHAR,
---         'HISTORICAL'
---     FROM @historical_data_stage
--- )
--- FILE_FORMAT = (TYPE = 'JSON');
+-- Historical data loading query (TESTED AND WORKING)
+COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
+    transaction_id, customer_id, transaction_date,
+    transaction_amount, transaction_type, data_source
+) FROM (
+    SELECT 
+        $1:transaction_id::NUMBER,
+        $1:customer_id::NUMBER,
+        $1:transaction_date::DATE,
+        $1:transaction_amount::NUMBER(10,2),
+        $1:transaction_type::VARCHAR,
+        $1:data_source::VARCHAR
+    FROM @FSI_DEMO.RAW_DATA.STG_EXT_AWS/historical_365_days.json
+) FILE_FORMAT = (TYPE = 'JSON');
 
 -- =====================================================
--- 3. REAL-TIME STREAMING SETUP (SNOWPIPE STREAMING)
+-- 3. REAL-TIME STREAMING SETUP (DIRECT INSERT)
 -- =====================================================
 
--- Create internal stage for real-time streaming buffer
-CREATE OR REPLACE STAGE streaming_stage
-    COMMENT = 'Internal stage for real-time transaction streaming buffer';
+-- Real-time streaming uses direct INSERTs via Python connector
+-- No additional stages or pipes needed for this implementation
+-- Data flows directly: Python Generator → Snowflake INSERT → TRANSACTIONS_TABLE
 
--- Create pipe for auto-ingestion of streaming data
-CREATE OR REPLACE PIPE streaming_pipe
-    AUTO_INGEST = FALSE  -- We'll use Snowpipe Streaming API, not file-based
-    AS
-    COPY INTO TRANSACTIONS_TABLE (
-        transaction_id, customer_id, transaction_date,
-        transaction_amount, transaction_type, data_source
-    ) FROM (
-        SELECT 
-            $1:transaction_id::NUMBER,
-            $1:customer_id::NUMBER,
-            $1:transaction_date::DATE,
-            $1:transaction_amount::NUMBER(10,2),
-            $1:transaction_type::VARCHAR,
-            'STREAMING'
-        FROM @streaming_stage
-    )
-    FILE_FORMAT = (TYPE = 'JSON');
+-- Streaming transactions are identified by data_source = 'STREAMING'
+-- and have ingestion_timestamp for tracking
 
 -- =====================================================
--- 4. GRANT PERMISSIONS FOR STREAMING
+-- 4. GRANT PERMISSIONS FOR STREAMING (SIMPLIFIED)
 -- =====================================================
 
--- Grant necessary permissions for Snowpipe Streaming
-GRANT USAGE ON WAREHOUSE INGESTION_WH_XS TO ROLE data_engineer_role;
-GRANT OPERATE ON WAREHOUSE INGESTION_WH_XS TO ROLE data_engineer_role;
-GRANT ALL ON STAGE streaming_stage TO ROLE data_engineer_role;
-GRANT ALL ON PIPE streaming_pipe TO ROLE data_engineer_role;
+-- Permissions for direct INSERT streaming (already covered in foundation setup)
+-- GRANT USAGE ON WAREHOUSE INGESTION_WH_XS TO ROLE data_engineer_role;
+-- GRANT OPERATE ON WAREHOUSE INGESTION_WH_XS TO ROLE data_engineer_role;
+-- Additional permissions already granted in 01_foundation_setup.sql
 
 -- =====================================================
 -- 5. MONITORING AND MANAGEMENT QUERIES
@@ -184,9 +159,8 @@ ORDER BY transaction_amount DESC;
 -- Check warehouse utilization
 SHOW WAREHOUSES LIKE 'INGESTION_WH_%';
 
--- Check pipe status
-SELECT 
-    SYSTEM$PIPE_STATUS('streaming_pipe') as pipe_status;
+-- Check streaming connection status (Python connector handles this)
+-- Real-time streaming status monitored via application metrics
 
 -- Check recent copy history
 SELECT 

@@ -8,10 +8,10 @@ USE WAREHOUSE INGESTION_WH_XS;
 USE DATABASE FSI_DEMO;
 USE SCHEMA RAW_DATA;
 
--- Upload historical data file to internal stage
-PUT file:///Users/nfernandezmartinez/Desktop/hands-on/cursor/fsi_demo/Cursor_Tests/historical_365_days_fixed.json @FSI_DEMO.RAW_DATA.temp_stage;
+-- Upload historical data file to existing external stage
+PUT file:///Users/nfernandezmartinez/Desktop/hands-on/cursor/fsi_demo/Cursor_Tests/historical_365_days.json @FSI_DEMO.RAW_DATA.STG_EXT_AWS;
 
--- Load historical data with proper data_source marking
+-- Load historical data with proper data_source marking (TESTED AND WORKING)
 COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
     transaction_id, customer_id, transaction_date,
     transaction_amount, transaction_type, data_source
@@ -23,7 +23,7 @@ COPY INTO FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE (
         $1:transaction_amount::NUMBER(10,2),
         $1:transaction_type::VARCHAR,
         $1:data_source::VARCHAR
-    FROM @FSI_DEMO.RAW_DATA.temp_stage/historical_365_days_fixed.json.gz
+    FROM @FSI_DEMO.RAW_DATA.STG_EXT_AWS/historical_365_days.json
 ) FILE_FORMAT = (TYPE = 'JSON');
 
 -- Verify load success
