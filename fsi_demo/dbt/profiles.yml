@@ -5,8 +5,7 @@ fsi_demo:
       warehouse: TRANSFORMATION_WH_S
       database: FSI_DEMO
       schema: TRANSFORMED
-      # Use SYSADMIN - most workspace users have this role
-      role: SYSADMIN
-      account: ""
-      user: ""
+      role: ACCOUNTADMIN
+      # For Snowflake native dbt - simplified config
+      threads: 1
   target: dev
