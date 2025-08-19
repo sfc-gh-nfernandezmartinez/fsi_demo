@@ -124,7 +124,7 @@ class TransactionGenerator:
         
         return transactions
     
-    def generate_historical_data(self, days: int = 365) -> List[Dict[str, Any]]:
+    def generate_historical_data(self, days: int = 365, transactions_per_day: int = 548) -> List[Dict[str, Any]]:
         """Generate historical transaction data for specified number of days"""
         end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         start_date = end_date - timedelta(days=days-1)
@@ -136,7 +136,7 @@ class TransactionGenerator:
         print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         
         while current_date <= end_date:
-            daily_transactions = self.generate_daily_transactions(current_date)
+            daily_transactions = self.generate_daily_transactions(current_date, transactions_per_day//2, transactions_per_day*2)
             all_transactions.extend(daily_transactions)
             
             if current_date.day % 30 == 0:  # Progress indicator
