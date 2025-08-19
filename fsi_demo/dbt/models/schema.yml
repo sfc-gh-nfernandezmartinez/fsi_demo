@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: raw_data
+    database: FSI_DEMO
+    schema: RAW_DATA
+    tables:
+      - name: customer_table
+      - name: transactions_table  
+      - name: mortgage_table
+
+models:
+  - name: stg_customers
+    description: Clean customer data with standardized names and phone numbers
+    columns:
+      - name: customer_id
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_transactions
+    description: Clean transaction data with categorization
+    columns:
+      - name: transaction_id
+        tests:
+          - unique
+          - not_null
+
+  - name: customer_360
+    description: Complete customer profile with transaction and mortgage data
+    columns:
+      - name: customer_id
+        tests:
+          - unique
+          - not_null

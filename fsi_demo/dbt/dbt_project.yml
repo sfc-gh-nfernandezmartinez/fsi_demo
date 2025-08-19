@@ -1,0 +1,15 @@
+name: 'fsi_demo'
+version: '1.0.0'
+profile: 'fsi_demo'
+
+model-paths: ["models"]
+target-path: "target"
+
+models:
+  fsi_demo:
+    staging:
+      +materialized: view
+      +schema: transformed
+    marts:
+      +materialized: table
+      +schema: analytics
