@@ -13,7 +13,9 @@ USE SCHEMA RAW_DATA;
 -- =====================================================
 -- 1. MORTGAGE TABLE - FOUNDATIONAL LOAN DATA
 -- =====================================================
+
 DROP TABLE IF EXISTS MORTGAGE_TABLE;
+
 CREATE TABLE MORTGAGE_TABLE (
     loan_record_id NUMBER(38,0) PRIMARY KEY,
     loan_id VARCHAR(255),
@@ -29,10 +31,13 @@ CREATE TABLE MORTGAGE_TABLE (
     created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
 ) COMMENT = 'Mortgage data with loan_record_id as primary key';
 
+
 -- =====================================================
 -- 2. CUSTOMER TABLE - REGULAR TABLE
 -- =====================================================
+
 DROP TABLE IF EXISTS CUSTOMER_TABLE;
+
 CREATE TABLE CUSTOMER_TABLE (
     customer_id NUMBER(38,0) PRIMARY KEY,
     loan_record_id NUMBER(38,0),
@@ -42,10 +47,13 @@ CREATE TABLE CUSTOMER_TABLE (
     created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
 ) COMMENT = 'Customer data with 1:1 loan_record_id mapping';
 
+
 -- =====================================================
 -- 3. TRANSACTIONS TABLE
 -- =====================================================
+
 DROP TABLE IF EXISTS TRANSACTIONS_TABLE;
+
 CREATE TABLE TRANSACTIONS_TABLE (
     transaction_id NUMBER(38,0) PRIMARY KEY,
     customer_id NUMBER(38,0) NOT NULL,
@@ -57,9 +65,11 @@ CREATE TABLE TRANSACTIONS_TABLE (
     created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
 ) COMMENT = 'Transaction data with source tracking';
 
+
 -- =====================================================
--- 4. ICEBERG TABLE (OPTIONAL)
+-- 4. ICEBERG TABLE (DATA LAKEHOUSE)
 -- =====================================================
+
 CREATE OR REPLACE ICEBERG TABLE customer_table_iceberg (
     customer_id NUMBER(38,0),
     loan_record_id NUMBER(38,0),
@@ -74,9 +84,10 @@ BASE_LOCATION = 'customer_data/'
 COMMENT = 'Customer data in Iceberg format';
 
 -- =====================================================
--- 5. DATA INGESTION
+-- 5. DATA INGESTION - MORTGAGE DATA
 -- =====================================================
--- Load mortgage data
+
+-- Load mortgage data from AWS S3
 COPY INTO MORTGAGE_TABLE (
     week_start_date, week, loan_id, ts, loan_type_name, 
     loan_purpose_name, applicant_income_000s, loan_amount_000s, 
@@ -96,7 +107,12 @@ FROM MORTGAGE_TABLE;
 DROP TABLE MORTGAGE_TABLE;
 ALTER TABLE MORTGAGE_TABLE_NEW RENAME TO MORTGAGE_TABLE;
 
--- Load historical transactions
+
+-- =====================================================
+-- 6. DATA INGESTION - HISTORICAL TRANSACTIONS  
+-- =====================================================
+
+-- Load historical transactions from AWS S3
 COPY INTO TRANSACTIONS_TABLE (
     transaction_id, customer_id, transaction_date,
     transaction_amount, transaction_type, data_source
@@ -106,7 +122,69 @@ COPY INTO TRANSACTIONS_TABLE (
     FROM @FSI_DEMO.RAW_DATA.STG_EXT_AWS/historical_365_days.json
 ) FILE_FORMAT = (TYPE = 'JSON');
 
--- Load customer data (manual steps)
--- 1. PUT file:///path/to/customer_data.json @customer_stage;
--- 2. Run customer data generator to create file
--- 3. Load using: INSERT INTO CUSTOMER_TABLE SELECT ... FROM @customer_stage/customer_data.json
+
+-- =====================================================
+-- 7. DATA INGESTION - CUSTOMER DATA
+-- =====================================================
+
+-- Step 1: Create internal stage and file format for customer data
+CREATE OR REPLACE STAGE customer_stage 
+COMMENT = 'Internal stage for customer data JSON upload';
+
+CREATE OR REPLACE FILE FORMAT json_format 
+TYPE = 'JSON' 
+COMMENT = 'JSON file format for customer data';
+
+-- Step 2: Upload customer data file to internal stage
+-- Run this command from your local machine:
+-- PUT file:///Users/nfernandezmartinez/Desktop/hands-on/cursor/fsi_demo/Cursor_Tests/customer_data.json @customer_stage AUTO_COMPRESS=FALSE;
+
+-- Step 3: Load customer data into regular table
+INSERT INTO CUSTOMER_TABLE (
+    customer_id, loan_record_id, first_name, last_name, phone_number
+)
+SELECT 
+    $1:customer_id::NUMBER(38,0),
+    $1:loan_record_id::NUMBER(38,0),
+    $1:first_name::VARCHAR(255),
+    $1:last_name::VARCHAR(255),
+    $1:phone_number::VARCHAR(255)
+FROM @customer_stage/customer_data.json
+(FILE_FORMAT => json_format);
+
+-- Step 4: Load customer data into Iceberg table (S3)
+INSERT INTO customer_table_iceberg (
+    customer_id, loan_record_id, first_name, last_name, phone_number, created_at
+)
+SELECT 
+    $1:customer_id::NUMBER(38,0),
+    $1:loan_record_id::NUMBER(38,0),
+    $1:first_name::STRING,
+    $1:last_name::STRING,
+    $1:phone_number::STRING,
+    CURRENT_TIMESTAMP()
+FROM @customer_stage/customer_data.json
+(FILE_FORMAT => json_format);
+
+
+-- =====================================================
+-- 8. DATA VERIFICATION
+-- =====================================================
+
+-- Verify data load counts
+SELECT 'MORTGAGE_TABLE' as table_name, COUNT(*) as record_count FROM MORTGAGE_TABLE
+UNION ALL
+SELECT 'CUSTOMER_TABLE' as table_name, COUNT(*) as record_count FROM CUSTOMER_TABLE  
+UNION ALL
+SELECT 'TRANSACTIONS_TABLE' as table_name, COUNT(*) as record_count FROM TRANSACTIONS_TABLE
+UNION ALL
+SELECT 'CUSTOMER_TABLE_ICEBERG' as table_name, COUNT(*) as record_count FROM customer_table_iceberg;
+
+-- Verify data relationships (should show 1:1 mapping for customers 1001-5800)
+SELECT 
+    'Customer-Mortgage Relationship' as validation,
+    COUNT(DISTINCT c.customer_id) as total_customers,
+    COUNT(DISTINCT c.loan_record_id) as customers_with_mortgages,
+    COUNT(DISTINCT m.loan_record_id) as total_mortgage_records
+FROM CUSTOMER_TABLE c
+LEFT JOIN MORTGAGE_TABLE m ON c.loan_record_id = m.loan_record_id;
