@@ -92,7 +92,7 @@ def test():
                         f"{transaction['transaction_type']} {anomaly_flag}")
         
         console.print(f"\n✅ Transaction generator working correctly!")
-        console.print(f"👥 Customer range: 1001-1100")
+        console.print(f"👥 Customer range: 1001-6000")
         console.print(f"🏷️  Transaction types: {len(generator.transaction_types)}")
         
     except ImportError as e:

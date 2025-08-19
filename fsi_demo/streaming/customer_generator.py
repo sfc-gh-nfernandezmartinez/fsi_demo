@@ -5,7 +5,7 @@ FSI Demo - Customer Data Generator for Iceberg Table
 
 Generates realistic customer data that:
 - Links to existing mortgage loan_ids 
-- Uses customer_ids compatible with transaction data (1001-1100)
+- Uses customer_ids compatible with transaction data (1001-6000)
 - Includes PII fields for governance testing
 - Outputs data ready for Iceberg table insertion
 """

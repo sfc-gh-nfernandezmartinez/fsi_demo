@@ -160,7 +160,7 @@ class SimpleRealtimeStreamer:
         table.add_row("📈 Success Rate", f"{success_rate:.1f}%")
         table.add_row("💥 Anomalies", f"{self.stats['anomalies']} ({self.stats['anomalies']/max(1,self.stats['total_transactions'])*100:.1f}%)")
         table.add_row("⏱️  Runtime", runtime_str)
-        table.add_row("👥 Customers", "1001-1100 (100 customers)")
+        table.add_row("👥 Customers", "1001-6000 (5000 customers)")
         
         return table
     
