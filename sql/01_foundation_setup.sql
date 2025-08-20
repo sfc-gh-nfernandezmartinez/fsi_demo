@@ -245,11 +245,28 @@ CREATE OR REPLACE NETWORK RULE ml_essential_services
   )
   COMMENT = 'Essential services for ML Registry';
 
--- Create external access integration
+-- Add cloud metadata network rule
+CREATE OR REPLACE NETWORK RULE cloud_metadata_access
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = (
+    '169.254.169.254:80',
+    'metadata.google.internal:80',
+    'management.azure.com:443',
+    'login.microsoftonline.com:443'
+  )
+  COMMENT = 'Allow access to cloud metadata services for ML Registry auto-detection';
+
+-- Update your existing integration to include cloud metadata
 CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION ml_external_access
-  ALLOWED_NETWORK_RULES = (pypi_network_rule, conda_network_rule, ml_essential_services)
+  ALLOWED_NETWORK_RULES = (
+    pypi_network_rule, 
+    conda_network_rule, 
+    ml_essential_services,
+    cloud_metadata_access  -- ← ADD THIS
+  )
   ENABLED = TRUE
-  COMMENT = 'External access for ML container runtime - PyPI and Conda';
+  COMMENT = 'Complete external access for ML container runtime';
 
 -- Grant usage to data_scientist_role
 GRANT USAGE ON INTEGRATION ml_external_access TO ROLE data_scientist_role;
