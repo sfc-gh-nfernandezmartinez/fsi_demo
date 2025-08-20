@@ -6,35 +6,34 @@ A concise demonstration of Snowflake’s data platform for financial services: i
 
 ```mermaid
 flowchart LR
-  subgraph Sources
-    s3["AWS S3 (Mortgage CSV)"]
-    py["Python Generators (Customers, Transactions)"]
-    java["Java CDC Simulator (Snowpipe Streaming)"]
+  subgraph Sources ["Data Sources"]
+    s3["Historical CSV Files<br/>(AWS S3)"]
+    py["Real-time Payments Stream<br/>(Python Generators)"]
+    java["Database CDC Events<br/>(Java Simulator)"]
   end
 
-  s3 --> raw_mort["RAW_DATA.MORTGAGE_TABLE"]
-  py --> raw_cust["RAW_DATA.CUSTOMER_TABLE"]
-  java --> raw_cdc["RAW_DATA.CDC_STREAMING_TABLE"]
-  raw_cdc --> raw_tx["RAW_DATA.TRANSACTIONS_TABLE"]
-
-  subgraph Transformations (dbt)
-    stg["TRANSFORMED (staging views)"]
-    marts["ANALYTICS (mart tables)"]
+  subgraph Snowflake ["Snowflake Data Cloud"]
+    raw["Raw Data Layer"]
+    dbt["dbt Transformations"]
+    
+    subgraph layers [" "]
+      dynamic["Dynamic Tables"]
+      governance["Data Governance"]
+    end
+    
+    marts["Analytics Marts"]
+    streamlit["Streamlit Dashboard"]
   end
 
-  raw_mort --> stg
-  raw_cust --> stg
-  raw_tx --> stg
-  stg --> marts
-
-  subgraph Governance
-    mask["Masking Policies on PII (LAST_NAME, PHONE_NUMBER)"]
-  end
-
-  raw_cust -.-> mask
-  mask -.->|Enforced at query time| viz
-
-  viz["Streamlit (native in Snowflake)"] -->|queries| marts
+  s3 --> raw
+  py --> raw
+  java --> raw
+  raw --> dbt
+  dbt --> dynamic
+  dbt --> governance
+  dynamic --> marts
+  governance -.-> marts
+  marts --> streamlit
 ```
 
 ## ✨ Key Features (In Demo Order)
