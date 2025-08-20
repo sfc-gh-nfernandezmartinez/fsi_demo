@@ -199,16 +199,10 @@ GRANT USAGE ON FUTURE MODELS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 GRANT CREATE MODEL ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 
 -- 2. Grant USAGE on SNOWFLAKE database (for ML functions)
-GRANT USAGE ON DATABASE SNOWFLAKE TO ROLE data_scientist_role;
-
--- 3. Grant USAGE on SNOWFLAKE.ML schema (for ML Registry functions)
-GRANT USAGE ON SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
+GRANT IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE TO ROLE data_scientist_role;
 
 -- 4. Grant EXECUTE on ML functions in SNOWFLAKE database
 GRANT USAGE ON ALL FUNCTIONS IN SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
-
--- 5. Grant future privileges on ML functions
-GRANT USAGE ON FUTURE FUNCTIONS IN SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
 
 -- 6. Additional privileges for model deployment and management
 GRANT CREATE FUNCTION ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
