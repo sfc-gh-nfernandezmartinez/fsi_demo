@@ -2,6 +2,22 @@
 
 A concise demonstration of Snowflake’s data platform for financial services: ingestion, transformation, governance, visualization, and analytics.
 
+## 🏆 Business Value Delivered
+✅ **Real-time Insights** - Live transaction monitoring and anomaly detection  
+✅ **Operational Efficiency** - Automated data pipelines and transformations  
+✅ **Enhanced Security** - Role-based access and principle of least privilege
+✅ **Reduced Compliance Risk** - Automatic PII masking and governance  
+✅ **Scalable Architecture** - Cloud-native, elastic compute and storage  
+
+## 🛠 Technology Stack
+
+- **☁️ Storage**: AWS S3 + Iceberg + Snowflake managed storage
+- **📡 Real-time Streaming**: Python + Java (Snowpipe Streaming SDK)
+- **🔄 Transformations**: dbt Core (Snowflake-native execution)
+- **🔒 Governance**: RBAC + Dynamic PII Masking Policies
+- **📊 Analytics**: Streamlit + Plotly (interactive dashboards)
+- **🤖 ML/AI**: Snowflake ML/AI in SNowflaek Notebooks
+
 ## 🧭 Architecture & Lineage
 
 ```mermaid
@@ -44,6 +60,34 @@ flowchart LR
 - **Visualization**: Native Streamlit app in `ANALYTICS` schema
 - **Analytics**: Customer 360, transaction summaries, simple insights
 
+
+## 📊 Data Model
+
+**🏦 Customer Data** (5,000 customers)
+- Customer profiles with PII (masked for compliance)
+- 1:1 mapping to mortgage applications
+- Realistic customer tier distribution
+
+**🏠 Mortgage Data** (4,800 applications)
+- Loan details from AWS S3 external stage
+- Iceberg table format for performance
+- Real loan application attributes
+
+**💳 Transaction Data** (200,000+ historical + real-time)
+- FSI transaction types (leisure, lifestyle, etc.)
+- CDC streaming with INSERT/UPDATE/DELETE
+- Statistical patterns for anomaly detection
+
+
+## 👥 User Personas & Roles
+
+| Role | Access Level | Purpose |
+|------|-------------|---------|
+| **`data_steward`** | 🟢 Full PII Access | Governance oversight, compliance monitoring |
+| **`data_analyst_role`** | 🔒 Masked PII | Dashboard users, business analytics |
+| **`ACCOUNTADMIN`** | 🔒 Masked PII | System administration (enhanced security) |
+
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -80,6 +124,27 @@ pip install -r requirements.txt
 4) Governance (strict masking policies and RBAC)
 ```sql
 @sql/04_governance.sql
+```
+
+## Usage
+
+**Generate Data:**
+```bash
+# Generate customer data (5,000 customers)
+python stream_demo.py customers
+
+# Generate historical transactions (200,000 records)
+python stream_demo.py historical
+
+# Start real-time streaming
+python stream_demo.py start
+```
+
+**Java CDC Streaming:**
+```bash
+cd java_streaming
+# Build and run FSI event streamer
+mvn compile exec:java -Dexec.mainClass="CDCSimulatorApp"
 ```
 
 **5. Deploy dbt Models (Snowflake native):**
@@ -128,84 +193,14 @@ fsi_demo/
 └── stream_demo.py                 # CLI for data generation
 ```
 
-## 🎯 Demo Usage
-
-**Generate Data:**
-```bash
-# Generate customer data (5,000 customers)
-python stream_demo.py customers
-
-# Generate historical transactions (200,000 records)
-python stream_demo.py historical
-
-# Start real-time streaming
-python stream_demo.py start
-```
-
-**Java CDC Streaming:**
-```bash
-cd java_streaming
-# Build and run FSI event streamer
-mvn compile exec:java -Dexec.mainClass="CDCSimulatorApp"
-```
-
-## 👥 User Personas & Roles
-
-| Role | Access Level | Purpose |
-|------|-------------|---------|
-| **`data_steward`** | 🟢 Full PII Access | Governance oversight, compliance monitoring |
-| **`data_analyst_role`** | 🔒 Masked PII | Dashboard users, business analytics |
-| **`ACCOUNTADMIN`** | 🔒 Masked PII | System administration (enhanced security) |
-
-## 📊 Data Model & Scale
-
-**🏦 Customer Data** (5,000 customers)
-- Customer profiles with PII (masked for compliance)
-- 1:1 mapping to mortgage applications
-- Realistic customer tier distribution
-
-**🏠 Mortgage Data** (4,800 applications)
-- Loan details from AWS S3 external stage
-- Iceberg table format for performance
-- Real loan application attributes
-
-**💳 Transaction Data** (200,000+ historical + real-time)
-- FSI transaction types (leisure, lifestyle, etc.)
-- CDC streaming with INSERT/UPDATE/DELETE
-- Statistical patterns for anomaly detection
-
-## 🛠 Technology Stack
-
-- **🏔️ Platform**: Snowflake Data Cloud
-- **🔄 Transformations**: dbt Core (Snowflake-native execution)
-- **📡 Real-time Streaming**: Python + Java (Snowpipe Streaming SDK)
-- **📊 Analytics**: Streamlit + Plotly (interactive dashboards)
-- **🤖 ML/AI**: Snowflake ML Functions (anomaly detection, forecasting)
-- **🔒 Governance**: RBAC + Dynamic PII Masking Policies
-- **☁️ Storage**: AWS S3 + Iceberg + Snowflake managed storage
-
-## 🔍 What to Show in the Demo
-
-1) Ingestion: S3 copy, generated customers, optional CDC
-2) Transformation: dbt staging and marts in the right schemas
-3) Governance: Query `CUSTOMER_TABLE` as `data_analyst_role` vs `data_steward`
-4) Visualization: Open the Streamlit app in Snowflake and apply filters
-5) Analytics: Query `ANALYTICS.customer_360` and `ANALYTICS.transaction_summary`
-
-## 🏆 Business Value Delivered
-
-✅ **Reduced Compliance Risk** - Automatic PII masking and governance  
-✅ **Real-time Insights** - Live transaction monitoring and anomaly detection  
-✅ **Operational Efficiency** - Automated data pipelines and transformations  
-✅ **Enhanced Security** - Role-based access and principle of least privilege  
-✅ **Scalable Architecture** - Cloud-native, elastic compute and storage  
-
 ## 📖 Documentation
 
-See `guides/` for the demo runbook:
-- `01_Project_Architecture.md` — overall design and lineage
-- `02_Data_Pipeline.md` — ingestion, streaming, governance, optional DMFs & audit
-- `03_Analytics_Transformation.md` — dbt staging/marts and validation
+See `guides/` for detailed runbooks:
+- `01_Ingestion.md` — batch from S3, generated customers, CDC streaming
+- `02_Transform.md` — dbt native in Snowflake, staging → marts
+- `03_Governance.md` — masking policies, RBAC, notes on DMFs/audit
+- `04_Visualization.md` — Streamlit in Snowflake with SnowCLI
+- `05_ML_AI.md` — planned ML/AI enhancements (anomaly detection)
 
 ## 🤝 Contributing
 
