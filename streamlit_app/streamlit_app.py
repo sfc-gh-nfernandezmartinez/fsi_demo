@@ -248,101 +248,50 @@ def load_customer_insights(tiers=None):
     return execute_query(query)
 
 # =====================================================
-# ENHANCED SIDEBAR CONTROLS
+# SIMPLIFIED SIDEBAR CONTROLS
 # =====================================================
 st.sidebar.header("🎛️ Dashboard Controls")
 
-# Show role-specific message
+# Show current role for governance context
 st.sidebar.markdown(f"""
-**👤 Current User Role:** `{current_role}`  
-**🔒 Data Access Level:** {'🟢 Full Access (Steward)' if current_role == 'data_steward' else '🟡 Masked PII (Governance)'}
+**Current Role:** `{current_role}`  
+{'🟢 Full PII Access' if current_role == 'data_steward' else '🔒 PII Masked'}
 """)
 
 st.sidebar.markdown("---")
 
-# Analysis mode selector
-analysis_mode = st.sidebar.selectbox(
-    "📊 Analysis Mode",
-    ["Real-time Monitoring", "Historical Analysis", "ML Predictions", "Risk Assessment"],
-    index=0
-)
-
-# Date range selector with more options
+# Simple date range selector (applies to all charts)
 date_range = st.sidebar.selectbox(
     "📅 Time Period",
-    ["Last 7 days", "Last 30 days", "Last 90 days", "Last 6 months", "All historical data"],
-    index=2
+    ["Last 30 days", "Last 90 days", "Last 6 months", "All historical data"],
+    index=1
 )
 
-# Load transaction types and customer tiers with enhanced data
+# Load transaction types and customer tiers
 tx_types_df = load_transaction_types()
 customer_tiers_df = load_customer_tiers()
 
-# Enhanced transaction type filter
+# Simple transaction type filter
 if not tx_types_df.empty:
-    st.sidebar.subheader("💳 Transaction Filters")
     selected_tx_types = st.sidebar.multiselect(
-        "Transaction Types",
+        "💳 Transaction Types",
         options=tx_types_df['TRANSACTION_TYPE'].tolist(),
-        default=tx_types_df['TRANSACTION_TYPE'].tolist(),
-        help="Filter by transaction types. Shows volume ranking."
+        default=tx_types_df['TRANSACTION_TYPE'].tolist()
     )
-    
-    # Show transaction type insights
-    if len(selected_tx_types) > 0:
-        top_type = tx_types_df.iloc[0]
-        st.sidebar.info(f"💡 **Top Volume:** {top_type['TRANSACTION_TYPE']} (${top_type['TOTAL_VOLUME']:,.0f})")
 else:
     selected_tx_types = []
     st.sidebar.warning("No transaction types found")
 
-# Enhanced customer tier filter
+# Simple customer tier filter
 if not customer_tiers_df.empty:
-    st.sidebar.subheader("👥 Customer Segments")
     selected_tiers = st.sidebar.multiselect(
-        "Customer Tiers",
+        "👥 Customer Tiers",
         options=customer_tiers_df['CUSTOMER_TIER'].tolist(),
-        default=customer_tiers_df['CUSTOMER_TIER'].tolist(),
-        help="Filter by customer tiers. Shows by spending level."
+        default=customer_tiers_df['CUSTOMER_TIER'].tolist()
     )
-    
-    # Show tier insights
-    if len(selected_tiers) > 0:
-        premium_tier = customer_tiers_df.iloc[0]
-        st.sidebar.success(f"💎 **Premium Tier:** {premium_tier['CUSTOMER_TIER']} (Avg: ${premium_tier['AVG_SPENDING']:,.0f})")
 else:
     selected_tiers = []
     st.sidebar.warning("No customer tiers found")
-
-# Advanced ML controls
-st.sidebar.markdown("---")
-st.sidebar.subheader("🤖 ML & Analytics")
-
-# Auto-refresh toggle
-auto_refresh = st.sidebar.checkbox("🔄 Auto-refresh data", value=True, help="Refresh data every 30 seconds")
-
-# Anomaly detection controls
-anomaly_method = st.sidebar.selectbox(
-    "Anomaly Detection Method",
-    ["Statistical Z-Score", "Snowflake ML", "Isolation Forest", "Time Series Forecasting"],
-    index=0
-)
-
-anomaly_sensitivity = st.sidebar.slider(
-    "Detection Sensitivity",
-    min_value=1.0,
-    max_value=3.0,
-    value=2.0,
-    step=0.1,
-    help="Z-score threshold: 2.0 = ~95% confidence, 3.0 = ~99% confidence"
-)
-
-run_anomaly_detection = st.sidebar.button("🚀 Run Anomaly Detection", type="primary")
-
-# Risk assessment controls
-st.sidebar.subheader("⚠️ Risk Monitoring")
-risk_threshold = st.sidebar.slider("Risk Alert Threshold ($)", min_value=1000, max_value=50000, value=10000, step=1000)
-monitor_suspicious = st.sidebar.checkbox("Monitor Suspicious Patterns", value=True)
 
 # =====================================================
 # MAIN DASHBOARD CONTENT
@@ -350,7 +299,6 @@ monitor_suspicious = st.sidebar.checkbox("Monitor Suspicious Patterns", value=Tr
 
 # Determine date range
 days_map = {
-    "Last 7 days": 7,
     "Last 30 days": 30,
     "Last 90 days": 90, 
     "Last 6 months": 180,
@@ -358,387 +306,155 @@ days_map = {
 }
 days_back = days_map[date_range]
 
-# Load enhanced data
+# Load data
 if selected_tx_types and selected_tiers:
-    with st.spinner("🔄 Loading real-time analytics..."):
+    with st.spinner("Loading analytics..."):
         df_transactions = load_transaction_data(days_back, selected_tx_types)
         df_customers = load_customer_insights(selected_tiers)
         df_metrics = load_real_time_metrics()
-        
-        # Load anomaly data
-        if analysis_mode in ["Real-time Monitoring", "Risk Assessment"] or run_anomaly_detection:
-            df_anomalies = detect_transaction_anomalies()
-        else:
-            df_anomalies = pd.DataFrame()
     
     # =====================================================
-    # ENHANCED REAL-TIME METRICS DASHBOARD
+    # KEY METRICS DASHBOARD
     # =====================================================
     if not df_transactions.empty and not df_metrics.empty:
         
-        # Main KPIs with growth indicators
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # Simple KPI metrics
+        col1, col2, col3, col4 = st.columns(4)
         
         metrics = df_metrics.iloc[0]
         
         with col1:
             total_volume = df_transactions['DAILY_VOLUME'].sum()
-            avg_daily = metrics['AVG_DAILY_VOLUME']
-            growth = ((total_volume / len(df_transactions)) - avg_daily) / avg_daily * 100 if avg_daily > 0 else 0
             st.metric(
                 "💰 Total Volume", 
                 f"${total_volume:,.0f}",
-                delta=f"{growth:+.1f}% vs avg",
-                delta_color="normal"
+                delta=f"{len(df_transactions)} days"
             )
         
         with col2:
             total_transactions = df_transactions['DAILY_COUNT'].sum()
             daily_avg = total_transactions / len(df_transactions) if len(df_transactions) > 0 else 0
             st.metric(
-                "📊 Transactions", 
+                "📊 Total Transactions", 
                 f"{total_transactions:,}",
-                delta=f"{daily_avg:.0f}/day avg",
-                delta_color="normal"
+                delta=f"{daily_avg:.0f}/day average"
             )
         
         with col3:
-            volatility = metrics['VOLUME_VOLATILITY']
-            peak_volume = metrics['PEAK_VOLUME']
+            avg_amount = df_transactions['AVG_AMOUNT'].mean()
             st.metric(
-                "📈 Volatility", 
-                f"${volatility:,.0f}",
-                delta=f"Peak: ${peak_volume:,.0f}",
-                delta_color="normal"
+                "💳 Average Amount", 
+                f"${avg_amount:.2f}",
+                delta=f"Range: ${df_transactions['MIN_AMOUNT'].min():.0f}-${df_transactions['MAX_AMOUNT'].max():.0f}"
             )
         
         with col4:
             unique_customers = len(df_customers)
-            total_customers = df_customers['CUSTOMER_COUNT'].sum() if 'CUSTOMER_COUNT' in df_customers.columns else unique_customers
             st.metric(
                 "👥 Active Customers", 
                 f"{unique_customers:,}",
-                delta=f"{len(selected_tiers)} segments",
-                delta_color="normal"
-            )
-        
-        with col5:
-            # Anomaly count
-            anomaly_count = len(df_anomalies[df_anomalies['IS_ANOMALY'] == True]) if not df_anomalies.empty else 0
-            st.metric(
-                "🚨 Anomalies", 
-                f"{anomaly_count}",
-                delta="Last 90 days" if anomaly_count > 0 else "All clear",
-                delta_color="inverse" if anomaly_count > 5 else "normal"
+                delta=f"{len(selected_tiers)} tiers selected"
             )
         
         # =====================================================
-        # ENHANCED ANOMALY DETECTION & TRENDS
+        # TRANSACTION TRENDS
         # =====================================================
+        st.header("📈 Transaction Analysis")
         
-        # Show anomaly alerts if any detected
-        if not df_anomalies.empty and anomaly_count > 0:
-            st.markdown('<div class="anomaly-alert">', unsafe_allow_html=True)
-            st.warning(f"🚨 **{anomaly_count} Anomalies Detected** in the last 90 days! Review patterns below.")
+        # Simple time series chart
+        if len(selected_tx_types) > 0:
+            fig_trends = make_subplots(
+                rows=2, cols=1,
+                subplot_titles=('Daily Transaction Volume ($)', 'Daily Transaction Count'),
+                vertical_spacing=0.1
+            )
             
-            recent_anomalies = df_anomalies[df_anomalies['IS_ANOMALY'] == True].tail(3)
-            for _, anomaly in recent_anomalies.iterrows():
-                st.write(f"📅 **{anomaly['TRANSACTION_DATE']}**: {anomaly['ANOMALY_TYPE']} - Volume: ${anomaly['DAILY_VOLUME']:,.0f} (Z-score: {anomaly['VOLUME_Z_SCORE']:.2f})")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Create enhanced trends visualization
-        st.header("📊 Advanced Transaction Analytics")
-        
-        # Create tabs for different views
-        tab1, tab2, tab3 = st.tabs(["📈 Trends & Anomalies", "🎯 Transaction Heatmap", "🔍 Pattern Analysis"])
-        
-        with tab1:
-            if not df_anomalies.empty:
-                # Enhanced anomaly visualization
-                fig_anomaly = go.Figure()
-                
-                # Plot normal transactions
-                normal_data = df_anomalies[df_anomalies['IS_ANOMALY'] == False]
-                fig_anomaly.add_trace(go.Scatter(
-                    x=normal_data['TRANSACTION_DATE'],
-                    y=normal_data['DAILY_VOLUME'],
-                    mode='lines+markers',
-                    name='Normal Volume',
-                    line=dict(color='blue', width=2),
-                    marker=dict(size=6, color='lightblue'),
-                    hovertemplate='<b>%{x}</b><br>Volume: $%{y:,.0f}<br>Status: Normal<extra></extra>'
-                ))
-                
-                # Plot anomalies with different colors based on type
-                anomalies = df_anomalies[df_anomalies['IS_ANOMALY'] == True]
-                if not anomalies.empty:
-                    volume_anomalies = anomalies[anomalies['ANOMALY_TYPE'] == 'Volume Anomaly']
-                    count_anomalies = anomalies[anomalies['ANOMALY_TYPE'] == 'Count Anomaly']
-                    
-                    if not volume_anomalies.empty:
-                        fig_anomaly.add_trace(go.Scatter(
-                            x=volume_anomalies['TRANSACTION_DATE'],
-                            y=volume_anomalies['DAILY_VOLUME'],
-                            mode='markers',
-                            name='Volume Anomalies',
-                            marker=dict(color='red', size=12, symbol='diamond'),
-                            hovertemplate='<b>%{x}</b><br>Volume: $%{y:,.0f}<br>⚠️ Volume Anomaly<br>Z-score: %{customdata:.2f}<extra></extra>',
-                            customdata=volume_anomalies['VOLUME_Z_SCORE']
-                        ))
-                    
-                    if not count_anomalies.empty:
-                        fig_anomaly.add_trace(go.Scatter(
-                            x=count_anomalies['TRANSACTION_DATE'],
-                            y=count_anomalies['DAILY_VOLUME'],
-                            mode='markers',
-                            name='Count Anomalies',
-                            marker=dict(color='orange', size=12, symbol='triangle-up'),
-                            hovertemplate='<b>%{x}</b><br>Volume: $%{y:,.0f}<br>⚠️ Count Anomaly<br>Z-score: %{customdata:.2f}<extra></extra>',
-                            customdata=count_anomalies['COUNT_Z_SCORE']
-                        ))
-                
-                fig_anomaly.update_layout(
-                    title=f"🔍 Transaction Volume Analysis with Anomaly Detection (Z-score > {anomaly_sensitivity})",
-                    xaxis_title="Date",
-                    yaxis_title="Daily Transaction Volume ($)",
-                    height=500,
-                    template="plotly_white"
-                )
-                
-                st.plotly_chart(fig_anomaly, use_container_width=True)
-                
-                # Show statistical summary
-                if not anomalies.empty:
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Anomaly Rate", f"{len(anomalies)/len(df_anomalies)*100:.1f}%")
-                    with col2:
-                        st.metric("Avg Anomaly Volume", f"${anomalies['DAILY_VOLUME'].mean():,.0f}")
-                    with col3:
-                        st.metric("Max Z-Score", f"{max(anomalies['VOLUME_Z_SCORE'].max(), anomalies['COUNT_Z_SCORE'].max()):.2f}")
+            # Plot volume trend
+            for tx_type in selected_tx_types:
+                df_type = df_transactions[df_transactions['TRANSACTION_TYPE'] == tx_type]
+                if not df_type.empty:
+                    fig_trends.add_trace(
+                        go.Scatter(
+                            x=df_type['TRANSACTION_DATE'],
+                            y=df_type['DAILY_VOLUME'],
+                            mode='lines+markers',
+                            name=f'{tx_type} Volume',
+                            line=dict(width=2)
+                        ),
+                        row=1, col=1
+                    )
             
-        with tab2:
-            # Transaction heatmap by type and day
-            if len(selected_tx_types) > 1:
-                heatmap_data = df_transactions.pivot_table(
-                    values='DAILY_VOLUME', 
-                    index='TRANSACTION_DATE', 
-                    columns='TRANSACTION_TYPE', 
-                    aggfunc='sum',
-                    fill_value=0
-                )
-                
-                fig_heatmap = px.imshow(
-                    heatmap_data.T,
-                    title="💰 Transaction Volume Heatmap by Type & Date",
-                    labels=dict(x="Date", y="Transaction Type", color="Volume ($)"),
-                    color_continuous_scale="RdYlBu_r"
-                )
-                fig_heatmap.update_layout(height=400)
-                st.plotly_chart(fig_heatmap, use_container_width=True)
-            else:
-                st.info("Select multiple transaction types to see the heatmap visualization.")
+            # Plot count trend  
+            for tx_type in selected_tx_types:
+                df_type = df_transactions[df_transactions['TRANSACTION_TYPE'] == tx_type]
+                if not df_type.empty:
+                    fig_trends.add_trace(
+                        go.Scatter(
+                            x=df_type['TRANSACTION_DATE'],
+                            y=df_type['DAILY_COUNT'],
+                            mode='lines+markers',
+                            name=f'{tx_type} Count',
+                            line=dict(width=2),
+                            showlegend=False
+                        ),
+                        row=2, col=1
+                    )
+            
+            fig_trends.update_layout(height=600, title_text="Transaction Trends Over Time")
+            fig_trends.update_xaxes(title_text="Date")
+            fig_trends.update_yaxes(title_text="Volume ($)", row=1, col=1)
+            fig_trends.update_yaxes(title_text="Count", row=2, col=1)
+            
+            st.plotly_chart(fig_trends, use_container_width=True)
         
-        with tab3:
-            # Pattern analysis with multiple visualizations
+
+        
+        # =====================================================
+        # CUSTOMER INSIGHTS
+        # =====================================================
+        st.header("👥 Customer Insights")
+        
+        if not df_customers.empty:
+            # Simple customer analytics
             col1, col2 = st.columns(2)
             
             with col1:
-                # Transaction volume distribution
-                if not df_transactions.empty:
-                    fig_dist = px.histogram(
-                        df_transactions, 
-                        x='DAILY_VOLUME',
-                        title="📊 Daily Volume Distribution",
-                        nbins=20,
-                        color_discrete_sequence=['#1f77b4']
-                    )
-                    fig_dist.update_layout(height=350)
-                    st.plotly_chart(fig_dist, use_container_width=True)
+                # Customer tier distribution
+                tier_summary = customer_tiers_df
+                
+                # Color palette for tiers
+                tier_colors = {
+                    'PLATINUM': '#E6E6FA',  # Light purple
+                    'GOLD': '#FFD700',      # Gold
+                    'SILVER': '#C0C0C0',    # Silver
+                    'BRONZE': '#CD7F32',    # Bronze
+                    'STANDARD': '#87CEEB'   # Sky blue
+                }
+                
+                colors = [tier_colors.get(tier, f'hsl({i*60}, 70%, 60%)') for i, tier in enumerate(tier_summary['CUSTOMER_TIER'])]
+                
+                fig_tiers = px.pie(
+                    tier_summary, 
+                    values='CUSTOMER_COUNT', 
+                    names='CUSTOMER_TIER',
+                    title="🏆 Customer Distribution by Tier",
+                    color_discrete_sequence=colors
+                )
+                fig_tiers.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig_tiers, use_container_width=True)
             
             with col2:
-                # Weekly pattern analysis
-                if not df_transactions.empty:
-                    df_transactions['DAY_OF_WEEK'] = pd.to_datetime(df_transactions['TRANSACTION_DATE']).dt.day_name()
-                    weekly_pattern = df_transactions.groupby('DAY_OF_WEEK')['DAILY_VOLUME'].mean().reset_index()
-                    
-                    # Reorder days
-                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                    weekly_pattern['DAY_OF_WEEK'] = pd.Categorical(weekly_pattern['DAY_OF_WEEK'], categories=day_order, ordered=True)
-                    weekly_pattern = weekly_pattern.sort_values('DAY_OF_WEEK')
-                    
-                    fig_weekly = px.bar(
-                        weekly_pattern,
-                        x='DAY_OF_WEEK',
-                        y='DAILY_VOLUME',
-                        title="📅 Average Volume by Day of Week",
-                        color='DAILY_VOLUME',
-                        color_continuous_scale='viridis'
-                    )
-                    fig_weekly.update_layout(height=350)
-                    st.plotly_chart(fig_weekly, use_container_width=True)
-        
-        # =====================================================
-        # ADVANCED ML & SNOWFLAKE NATIVE FEATURES  
-        # =====================================================
-        st.header("🤖 Advanced ML & Snowflake Native Analytics")
-        
-        if run_anomaly_detection and anomaly_method == "Snowflake ML":
-            with st.spinner("🔄 Training Snowflake ML anomaly detection model..."):
-                try:
-                    # Create Snowflake ML anomaly detection model
-                    model_name = "fsi_anomaly_model"
-                    
-                    # Create training view
-                    execute_query("""
-                        CREATE OR REPLACE VIEW FSI_DEMO.RAW_DATA.anomaly_training_view AS
-                        SELECT 
-                            TRANSACTION_DATE as TS,
-                            SUM(TRANSACTION_AMOUNT) as DAILY_VOLUME
-                        FROM FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE
-                        WHERE DATA_SOURCE = 'HISTORICAL'
-                            AND TRANSACTION_DATE >= CURRENT_DATE() - 365
-                        GROUP BY TRANSACTION_DATE
-                        ORDER BY TRANSACTION_DATE
-                    """)
-                    
-                    # Create Snowflake ML anomaly detection model
-                    execute_query(f"""
-                        CREATE OR REPLACE SNOWFLAKE.ML.ANOMALY_DETECTION {model_name}(
-                            INPUT_DATA => TABLE(FSI_DEMO.RAW_DATA.anomaly_training_view),
-                            TIMESTAMP_COLNAME => 'TS',
-                            TARGET_COLNAME => 'DAILY_VOLUME'
-                        )
-                    """)
-                    
-                    st.success("✅ Snowflake ML model trained successfully!")
-                    
-                    # Run anomaly detection
-                    ml_anomaly_results = execute_query(f"""
-                        CALL {model_name}!DETECT_ANOMALIES(
-                            INPUT_DATA => TABLE(FSI_DEMO.RAW_DATA.anomaly_training_view),
-                            TIMESTAMP_COLNAME => 'TS',
-                            TARGET_COLNAME => 'DAILY_VOLUME'
-                        )
-                    """)
-                    
-                    if not ml_anomaly_results.empty:
-                        st.subheader("🎯 Snowflake ML Anomaly Results")
-                        ml_anomalies = ml_anomaly_results[ml_anomaly_results['IS_ANOMALY'] == True]
-                        st.metric("ML Detected Anomalies", len(ml_anomalies))
-                        
-                        if len(ml_anomalies) > 0:
-                            st.dataframe(ml_anomalies[['TS', 'DAILY_VOLUME', 'ANOMALY_SCORE']].head(5))
-                    
-                except Exception as e:
-                    st.error(f"Snowflake ML Error: {str(e)}")
-                    st.info("💡 Tip: Statistical anomaly detection is available above as an alternative.")
-        
-        # =====================================================
-        # ENHANCED CUSTOMER INSIGHTS WITH GOVERNANCE DEMO
-        # =====================================================
-        st.header("👥 Customer Intelligence & Data Governance Demo")
-        
-        # Governance explanation
-        st.markdown('<div class="insight-box">', unsafe_allow_html=True)
-        st.info(f"""
-        🔒 **Data Governance in Action**: This section demonstrates PII masking policies.
-        - **Current Role**: `{current_role}`
-        - **Data Steward**: Sees full customer data (first_name, last_name, phone)
-        - **All Other Roles** (including ACCOUNTADMIN): See masked PII for compliance
-        - **Masking Rules**: last_name → "***", phone_number → "***-***-XXXX"
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        if not df_customers.empty:
-            # Enhanced customer analytics with multiple visualizations
-            tab1, tab2 = st.tabs(["📊 Tier Analytics", "💰 Spending Patterns"])
-            
-            with tab1:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Enhanced customer tier distribution with custom colors
-                    tier_summary = customer_tiers_df
-                    
-                    # Enhanced color palette for tiers (more distinct colors)
-                    tier_colors = {
-                        'PLATINUM': '#E6E6FA',  # Light purple
-                        'GOLD': '#FFD700',      # Gold
-                        'SILVER': '#C0C0C0',    # Silver
-                        'BRONZE': '#CD7F32',    # Bronze
-                        'STANDARD': '#87CEEB'   # Sky blue
-                    }
-                    
-                    colors = [tier_colors.get(tier, f'hsl({i*60}, 70%, 60%)') for i, tier in enumerate(tier_summary['CUSTOMER_TIER'])]
-                    
-                    fig_tiers = px.pie(
-                        tier_summary, 
-                        values='CUSTOMER_COUNT', 
-                        names='CUSTOMER_TIER',
-                        title="🏆 Customer Distribution by Tier",
-                        color_discrete_sequence=colors
-                    )
-                    fig_tiers.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_tiers, use_container_width=True)
-                
-                with col2:
-                    # Enhanced spending analysis
-                    fig_spending = px.bar(
-                        tier_summary,
-                        x='CUSTOMER_TIER',
-                        y='AVG_SPENDING',
-                        title="💎 Average Spending by Customer Tier",
-                        color='AVG_SPENDING',
-                        color_continuous_scale='viridis',
-                        text='AVG_SPENDING'
-                    )
-                    fig_spending.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-                    fig_spending.update_layout(showlegend=False)
-                    st.plotly_chart(fig_spending, use_container_width=True)
-                
-                # Tier performance metrics
-                st.subheader("📈 Tier Performance Metrics")
-                cols = st.columns(len(tier_summary))
-                for i, (_, tier) in enumerate(tier_summary.iterrows()):
-                    with cols[i]:
-                        st.metric(
-                            f"{tier['CUSTOMER_TIER']}", 
-                            f"{tier['CUSTOMER_COUNT']:,} customers",
-                            delta=f"${tier['AVG_SPENDING']:,.0f} avg"
-                        )
-            
-            with tab2:
-                # Spending distribution and patterns
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Spending distribution histogram
-                    if not df_customers.empty:
-                        fig_spend_dist = px.histogram(
-                            df_customers,
-                            x='AVG_TOTAL_SPENT',
-                            title="💰 Customer Spending Distribution",
-                            nbins=20,
-                            color_discrete_sequence=['#2E8B57']
-                        )
-                        fig_spend_dist.update_layout(height=350)
-                        st.plotly_chart(fig_spend_dist, use_container_width=True)
-                
-                with col2:
-                    # Transaction frequency analysis
-                    if not df_customers.empty:
-                        fig_freq = px.scatter(
-                            df_customers.head(50),
-                            x='AVG_TRANSACTIONS',
-                            y='AVG_TOTAL_SPENT',
-                            color='CUSTOMER_TIER',
-                            title="🔄 Spending vs Transaction Frequency",
-                            size='AVG_TOTAL_SPENT',
-                            hover_data=['FIRST_NAME']
-                        )
-                        fig_freq.update_layout(height=350)
-                        st.plotly_chart(fig_freq, use_container_width=True)
+                # Spending by tier
+                fig_spending = px.bar(
+                    tier_summary,
+                    x='CUSTOMER_TIER',
+                    y='AVG_SPENDING',
+                    title="💎 Average Spending by Customer Tier",
+                    color='AVG_SPENDING',
+                    color_continuous_scale='viridis'
+                )
+                fig_spending.update_layout(showlegend=False)
+                st.plotly_chart(fig_spending, use_container_width=True)
             
 
         else:
@@ -832,37 +548,33 @@ with col1:
     """)
 
 with col2:
-    st.markdown("### 🤖 **ML & Analytics**")
+    st.markdown("### 📊 **Analytics**")
     st.markdown("""
-    - **Anomaly Detection**: Statistical Z-Score & Snowflake ML
-    - **Real-time Processing**: ❄️ Snowpark & Streamlit
-    - **Warehouse**: `TRANSFORMATION_WH_S` (Cost-optimized)
-    - **Data Pipeline**: dbt + Snowflake native
+    - **Real-time Processing**: ❄️ Streamlit on Snowflake
+    - **Data Pipeline**: dbt transformations
+    - **Warehouse**: `TRANSFORMATION_WH_S`
+    - **Visualizations**: Interactive Plotly charts
     """)
 
 with col3:
-    st.markdown("### ⚡ **Performance**")
+    st.markdown("### ⚡ **Platform**")
     st.markdown("""
-    - **Caching**: Smart TTL-based refresh
-    - **Compute**: Auto-suspend/resume warehouses  
-    - **Storage**: Compressed columnar format
-    - **Scalability**: Elastic compute separation
+    - **Cloud**: Snowflake Data Cloud
+    - **Compute**: Auto-scaling warehouses
+    - **Storage**: Optimized columnar format
+    - **Security**: Enterprise-grade RBAC
     """)
 
-# Auto-refresh indicator
-if auto_refresh:
-    st.markdown("🔄 **Auto-refresh enabled** - Data updates every 30 seconds")
+
 
 # Build info
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666; font-size: 0.9em;'>
-    🏦 <strong>FSI Analytics Dashboard v2.0</strong> | 
-    Built with ❄️ <strong>Snowflake Streamlit</strong> & 📊 <strong>Plotly</strong> | 
-    🔒 <strong>Enterprise Data Governance</strong> | 
-    🤖 <strong>Native ML Integration</strong>
+    🏦 <strong>FSI Analytics Dashboard</strong> | 
+    Built with ❄️ <strong>Snowflake Streamlit</strong> & 📊 <strong>Plotly</strong>
     <br/>
-    <em>Demonstrates: PII Masking, Anomaly Detection, Real-time Analytics, Role-based Access Control</em>
+    <em>Demonstrates: Transaction Analytics, PII Masking, Customer Insights</em>
 </div>
 """, unsafe_allow_html=True)
 
