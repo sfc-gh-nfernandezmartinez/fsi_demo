@@ -3,11 +3,24 @@
 ## 🏦 Project Purpose
 Banking FSI demonstration platform showcasing Snowflake's capabilities for financial services, including real-time streaming, data governance, transformations, and analytics.
 
-## 🏗️ Data Architecture
-```
-AWS S3 → Snowflake RAW_DATA → TRANSFORMED → ANALYTICS
-     ↗️ Real-time Streams ↗️        ↗️          ↗️
-   CSV Files    Python/Java    dbt Models   ML/AI
+## 🏗️ Data Architecture & Lineage
+```mermaid
+flowchart LR
+  s3["AWS S3 (Mortgage CSV)"] --> raw_mort["RAW_DATA.MORTGAGE_TABLE"]
+  py["Python Generators"] --> raw_cust["RAW_DATA.CUSTOMER_TABLE"]
+  java["Java CDC (Snowpipe Streaming)"] --> raw_cdc["RAW_DATA.CDC_STREAMING_TABLE"]
+  raw_cdc --> raw_tx["RAW_DATA.TRANSACTIONS_TABLE"]
+
+  raw_mort --> stg["TRANSFORMED (staging views)"]
+  raw_cust --> stg
+  raw_tx --> stg
+  stg --> marts["ANALYTICS (mart tables)"]
+
+  subgraph Governance
+    mask["Masking Policies (LAST_NAME, PHONE_NUMBER)"]
+  end
+  raw_cust -.-> mask
+  mask -.->|enforced at query time| marts
 ```
 
 ### 3-Layer Data Strategy
@@ -48,10 +61,10 @@ ACCOUNTADMIN
     └── data_analyst_role
 ```
 
-### PII Masking Strategy
-- **last_name**: Full masking for data_analyst ("***")
-- **phone_number**: Partial masking ("***-***-1234")
-- **Access Control**: data_steward and ACCOUNTADMIN see unmasked data
+### PII Masking Strategy (Strict)
+- **LAST_NAME**: Full masking (`***`) for non-stewards
+- **PHONE_NUMBER**: Partial masking (`***-***-1234`) for non-stewards
+- **Access Control**: Only `data_steward` sees unmasked data
 
 ## 📊 Data Model
 - **CUSTOMER_TABLE**: 5,000 customers (1001-6000) with 1:1 mortgage mapping

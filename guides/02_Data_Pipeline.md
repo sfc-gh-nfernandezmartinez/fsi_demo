@@ -56,23 +56,70 @@ snow sql --query "SELECT COUNT(*) FROM CDC_STREAMING_TABLE"
 - **ingestion_timestamp** for lineage tracking
 - **Easy cleanup** of streaming data without affecting historical
 
-### PII Masking Policies
+### PII Masking Policies (Strict)
 ```sql
--- Full masking for last_name
-CREATE MASKING POLICY mask_last_name AS (val STRING) ->
-  CASE WHEN CURRENT_ROLE() IN ('SYSADMIN', 'ACCOUNTADMIN') 
-       THEN val ELSE '***' END;
+CREATE OR REPLACE MASKING POLICY mask_last_name AS (val STRING) RETURNS STRING ->
+  CASE WHEN UPPER(CURRENT_ROLE()) = 'DATA_STEWARD' THEN val ELSE '***' END;
 
--- Partial masking for phone_number  
-CREATE MASKING POLICY mask_phone_partial AS (val STRING) ->
-  CASE WHEN CURRENT_ROLE() IN ('SYSADMIN', 'ACCOUNTADMIN') 
-       THEN val ELSE CONCAT('***-***-', RIGHT(val, 4)) END;
+CREATE OR REPLACE MASKING POLICY mask_phone_partial AS (val STRING) RETURNS STRING ->
+  CASE WHEN UPPER(CURRENT_ROLE()) = 'DATA_STEWARD' THEN val ELSE CONCAT('***-***-', RIGHT(val, 4)) END;
 ```
 
 ### Access Control
-- **data_analyst**: Sees masked PII, can analyze patterns
-- **data_steward (SYSADMIN)**: Full PII access for governance
-- **data_engineer**: Pipeline management, no PII access needed
+- **data_analyst_role**: Masked PII for analytics
+- **data_steward**: Only role with unmasked PII
+- **data_engineer_role**: Pipeline operations
+
+## ✅ Optional: Data Metric Functions (DMFs) & Audit
+
+These features are optional for demos. If your account has Data Quality Monitoring enabled, you can illustrate built-in metrics and access history.
+
+### Data Metric Functions (system DMFs)
+```sql
+-- Grants (serverless compute + system DMFs access)
+GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE SYSADMIN;
+GRANT DATABASE ROLE SNOWFLAKE.DATA_METRIC_USER TO ROLE SYSADMIN;
+
+-- Assign a completeness metric on PHONE_NUMBER
+ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_RATIO ON (PHONE_NUMBER);
+
+-- Assign a uniqueness metric on CUSTOMER_ID
+ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
+  ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUENESS_RATIO ON (CUSTOMER_ID);
+
+-- Set a single schedule for all DMFs on this table
+ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
+  SET DATA METRIC SCHEDULE = 'USING CRON 0 2 * * * UTC';
+```
+
+Notes:
+- DMF names and availability can vary; see docs for the latest system DMFs.
+- Alternatively call DMFs ad hoc in SELECT statements without scheduling.
+
+Reference: Snowflake Data Quality and DMFs (`https://docs.snowflake.com/en/user-guide/data-quality-intro`).
+
+### Audit (Access/Query History)
+```sql
+-- ACCESS_HISTORY (requires appropriate privileges)
+-- SELECT ah.EVENT_TIME, ah.USER_NAME, ah.ROLE_NAME, ah.CLIENT_TYPE,
+--        obj.value:objectName::string AS OBJECT_NAME, obj.value:columns::string AS COLUMNS_ACCESSED
+-- FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY ah,
+--      LATERAL FLATTEN(input => ah.BASE_OBJECTS_ACCESSED) obj
+-- WHERE ah.EVENT_TIME >= DATEADD('day', -1, CURRENT_TIMESTAMP())
+--   AND obj.value:objectName::string IN ('FSI_DEMO.RAW_DATA.CUSTOMER_TABLE', 'FSI_DEMO.ANALYTICS.CUSTOMER_360')
+-- ORDER BY ah.EVENT_TIME DESC;
+
+-- QUERY_HISTORY (fallback)
+-- SELECT qh.START_TIME AS EVENT_TIME, qh.USER_NAME, qh.ROLE_NAME, qh.WAREHOUSE_NAME,
+--        LEFT(qh.QUERY_TEXT, 200) AS QUERY_SNIPPET
+-- FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh
+-- WHERE qh.START_TIME >= DATEADD('day', -1, CURRENT_TIMESTAMP())
+--   AND (REGEXP_LIKE(UPPER(qh.QUERY_TEXT), '\\bFSI_DEMO\\.RAW_DATA\\.CUSTOMER_TABLE\\b')
+--     OR REGEXP_LIKE(UPPER(qh.QUERY_TEXT), '\\bFSI_DEMO\\.ANALYTICS\\.CUSTOMER_360\\b'))
+--   AND qh.QUERY_TYPE IN ('SELECT')
+-- ORDER BY qh.START_TIME DESC;
+```
 
 ## 📊 Demo Flow Examples
 

@@ -4,12 +4,9 @@
 dbt-powered transformation pipeline that converts raw FSI data into business-ready analytics using Snowflake native dbt.
 
 ## 🏗️ Transformation Architecture
-```
-RAW_DATA schema (source tables)
-    ↓
-TRANSFORMED schema (staging views - clean data)
-    ↓  
-ANALYTICS schema (mart tables - business insights)
+```mermaid
+flowchart TB
+  raw[RAW_DATA (sources)] --> stg[TRANSFORMED (staging views)] --> marts[ANALYTICS (marts)]
 ```
 
 ## 📋 dbt Models

@@ -1,28 +1,49 @@
 # 🏦 FSI Demo - Snowflake Financial Services Platform
 
-A comprehensive demonstration of Snowflake's enterprise capabilities for financial services, showcasing modern data architecture, governance, and analytics.
+A concise demonstration of Snowflake’s data platform for financial services: ingestion, transformation, governance, visualization, and analytics.
 
-## ✨ Key Features
+## 🧭 Architecture & Lineage
 
-**🔒 Data Governance & Security**
-- Role-based PII masking (GDPR/CCPA compliant)
-- Principle of least privilege access control
-- Real-time governance enforcement
+```mermaid
+flowchart LR
+  subgraph Sources
+    s3["AWS S3 (Mortgage CSV)"]
+    py["Python Generators (Customers, Transactions)"]
+    java["Java CDC Simulator (Snowpipe Streaming)"]
+  end
 
-**📊 Advanced Analytics & ML**
-- Statistical anomaly detection with Z-score analysis
-- Snowflake ML integration for predictive analytics
-- Interactive dashboards with business insights
+  s3 --> raw_mort["RAW_DATA.MORTGAGE_TABLE"]
+  py --> raw_cust["RAW_DATA.CUSTOMER_TABLE"]
+  java --> raw_cdc["RAW_DATA.CDC_STREAMING_TABLE"]
+  raw_cdc --> raw_tx["RAW_DATA.TRANSACTIONS_TABLE"]
 
-**⚡ Real-time Data Processing** 
-- Python & Java streaming capabilities
-- CDC (Change Data Capture) patterns
-- High-performance data ingestion
+  subgraph Transformations (dbt)
+    stg["TRANSFORMED (staging views)"]
+    marts["ANALYTICS (mart tables)"]
+  end
 
-**🔄 Modern Data Transformation**
-- dbt native in Snowflake Workspaces
-- Automated data quality and testing
-- Staging and mart layer separation
+  raw_mort --> stg
+  raw_cust --> stg
+  raw_tx --> stg
+  stg --> marts
+
+  subgraph Governance
+    mask["Masking Policies on PII (LAST_NAME, PHONE_NUMBER)"]
+  end
+
+  raw_cust -.-> mask
+  mask -.->|Enforced at query time| viz
+
+  viz["Streamlit (native in Snowflake)"] -->|queries| marts
+```
+
+## ✨ Key Features (In Demo Order)
+
+- **Ingestion**: Batch from S3, Python generators, and Java CDC streaming
+- **Transformation**: dbt staging (views in `TRANSFORMED`) and marts (tables in `ANALYTICS`)
+- **Governance**: Strict PII masking policies (only `data_steward` unmasked), least-privilege roles
+- **Visualization**: Native Streamlit app in `ANALYTICS` schema
+- **Analytics**: Customer 360, transaction summaries, simple insights
 
 ## 🚀 Quick Start
 
@@ -41,21 +62,25 @@ cd fsi_demo
 pip install -r requirements.txt
 ```
 
-### 🎯 Deployment Steps
-**Foundation** → **Data Ingestion** → **Streaming** → **Complete Governance** → **Analytics**
-
+### 🎯 Deployment Steps (use in your live demo)
+1) Foundation
 ```sql
--- Step 1: Foundation Setup (warehouses, roles, schemas)
 @sql/01_foundation_setup.sql
+```
 
--- Step 2: Data Ingestion & Schema (tables, customer/mortgage data)
+2) Ingestion (tables and data)
+```sql
 @sql/02_ingestion_setup.sql
+```
 
--- Step 3: CDC Streaming Setup (real-time transaction processing)
+3) CDC Streaming Setup (optional for demo)
+```sql
 @sql/03_cdc_streaming_setup.sql
+```
 
--- Step 4: Complete Governance Framework (PII masking, RBAC, compliance)
-@sql/04_governance_complete.sql
+4) Governance (strict masking policies and RBAC)
+```sql
+@sql/04_governance.sql
 ```
 
 **5. Deploy dbt Models (Snowflake native):**
@@ -74,31 +99,34 @@ snow streamlit deploy --replace
 ## 📁 Clean Project Structure
 ```
 fsi_demo/
-├── 📂 sql/                         # Complete SQL setup (4 scripts)
-│   ├── 01_foundation_setup.sql     # Warehouses, roles, schemas
-│   ├── 02_ingestion_setup.sql      # Tables, data loading
-│   ├── 03_cdc_streaming_setup.sql  # Real-time streaming
-│   └── 04_governance_complete.sql  # PII masking, RBAC, compliance
-├── 📂 dbt/                         # Data transformation pipeline
-│   ├── models/staging/             # Clean, standardized views
-│   ├── models/marts/               # Business-ready tables
+├── sql/                           # Idempotent setup scripts
+│   ├── 01_foundation_setup.sql    # Warehouses, roles, schemas
+│   ├── 02_ingestion_setup.sql     # Tables, data loading
+│   ├── 03_cdc_streaming_setup.sql # CDC streaming demo
+│   └── 04_governance.sql          # PII masking, RBAC
+├── dbt/                           # Data transformation pipeline
+│   ├── models/staging/            # Clean, standardized views
+│   ├── models/marts/              # Business-ready tables
 │   ├── dbt_project.yml            # dbt configuration
 │   └── profiles.yml               # Snowflake connection
-├── 📂 streaming/                   # Python data generators
-│   ├── customer_generator.py      # Generate customer data
-│   ├── transaction_generator.py   # Core transaction logic
-│   ├── historical_generator.py    # Generate 200k historical records
-│   └── simple_realtime_streamer.py # Real-time streaming
-├── 📂 java_streaming/              # Enterprise CDC streaming
+├── streaming/                     # Python data generators
+│   ├── customer_generator.py
+│   ├── transaction_generator.py
+│   ├── historical_generator.py
+│   └── simple_realtime_streamer.py
+├── java_streaming/                # Java CDC streaming
+│   ├── CDCSimulatorClient.jar
 │   ├── src/snowflake/demo/samples/FSIEventStreamer.java
-│   ├── README.md                  # Java setup instructions
-│   └── snowflake.properties      # Configuration
-├── 📂 streamlit_app/               # Analytics dashboard
-│   ├── streamlit_app.py           # Main dashboard app
-│   ├── snowflake.yml              # SnowCLI deployment config
-│   └── environment.yml            # Python dependencies
-├── 📂 Cursor_Designs/              # Architecture documentation
-└── 📄 stream_demo.py               # CLI tool for data generation
+│   └── snowflake.properties
+├── streamlit_app/                 # Native Streamlit app
+│   ├── streamlit_app.py
+│   ├── snowflake.yml
+│   └── environment.yml
+├── guides/                        # Demo documentation
+│   ├── 01_Project_Architecture.md
+│   ├── 02_Data_Pipeline.md
+│   └── 03_Analytics_Transformation.md
+└── stream_demo.py                 # CLI for data generation
 ```
 
 ## 🎯 Demo Usage
@@ -157,27 +185,13 @@ mvn compile exec:java -Dexec.mainClass="CDCSimulatorApp"
 - **🔒 Governance**: RBAC + Dynamic PII Masking Policies
 - **☁️ Storage**: AWS S3 + Iceberg + Snowflake managed storage
 
-## 🔍 Key Demonstrations
+## 🔍 What to Show in the Demo
 
-### 1. **Data Governance & Compliance**
-- **Live PII Masking**: Different roles see different data
-- **RBAC in Action**: Role-based access control
-- **Compliance**: GDPR/CCPA ready governance framework
-
-### 2. **Advanced Analytics & ML**
-- **Real Anomaly Detection**: Statistical Z-score + Snowflake ML
-- **Interactive Dashboards**: Multi-tab analytics with business insights
-- **Pattern Analysis**: Weekly patterns, volume distribution, heatmaps
-
-### 3. **Real-time Data Processing**
-- **CDC Streaming**: Change data capture with actions
-- **Java + Python**: Enterprise-grade streaming architecture
-- **High Performance**: Optimized for financial transaction volumes
-
-### 4. **Modern Data Pipeline**
-- **dbt Native**: Transformations running in Snowflake Workspaces
-- **Staging → Marts**: Clean data architecture
-- **Data Quality**: Built-in testing and validation
+1) Ingestion: S3 copy, generated customers, optional CDC
+2) Transformation: dbt staging and marts in the right schemas
+3) Governance: Query `CUSTOMER_TABLE` as `data_analyst_role` vs `data_steward`
+4) Visualization: Open the Streamlit app in Snowflake and apply filters
+5) Analytics: Query `ANALYTICS.customer_360` and `ANALYTICS.transaction_summary`
 
 ## 🏆 Business Value Delivered
 
@@ -189,12 +203,10 @@ mvn compile exec:java -Dexec.mainClass="CDCSimulatorApp"
 
 ## 📖 Documentation
 
-Detailed architecture and design documentation available in `Cursor_Designs/` (internal use).
-
-**Key Documents:**
-- `01_Project_Architecture.md` - Overall system design
-- `02_Data_Pipeline.md` - Streaming and governance
-- `03_Analytics_Transformation.md` - dbt and ML strategy
+See `guides/` for the demo runbook:
+- `01_Project_Architecture.md` — overall design and lineage
+- `02_Data_Pipeline.md` — ingestion, streaming, governance, optional DMFs & audit
+- `03_Analytics_Transformation.md` — dbt staging/marts and validation
 
 ## 🤝 Contributing
 
