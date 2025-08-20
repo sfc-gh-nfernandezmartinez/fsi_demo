@@ -221,29 +221,19 @@ def load_transaction_data(days_back=90, tx_types=None):
     return execute_query(query)
 
 @st.cache_data(ttl=300)
-def load_customer_insights(tiers=None):
-    """Load customer insights with masked PII"""
-    tier_filter = ""
-    if tiers:
-        tier_list = "','".join(tiers)
-        tier_filter = f"AND CUSTOMER_TIER IN ('{tier_list}')"
-    
-    query = f"""
+def load_customer_summary():
+    """Load customer summary aggregated by tier"""
+    query = """
     SELECT 
         CUSTOMER_TIER,
         COUNT(*) as CUSTOMER_COUNT,
         AVG(TOTAL_SPENT) as AVG_TOTAL_SPENT,
         AVG(TOTAL_TRANSACTIONS) as AVG_TRANSACTIONS,
-        AVG(CASE WHEN HAS_MORTGAGE THEN 1 ELSE 0 END) as MORTGAGE_RATE,
-        -- PII fields automatically masked by policies
-        FIRST_NAME,
-        LAST_NAME,     -- Will show *** for data_analyst_role
-        PHONE_CLEAN    -- Based on masked phone_number
+        AVG(CASE WHEN HAS_MORTGAGE THEN 1 ELSE 0 END) as MORTGAGE_RATE
     FROM FSI_DEMO.ANALYTICS.CUSTOMER_360
-    WHERE 1=1 {tier_filter}
-    GROUP BY CUSTOMER_TIER, FIRST_NAME, LAST_NAME, PHONE_CLEAN
+    WHERE CUSTOMER_TIER IS NOT NULL
+    GROUP BY CUSTOMER_TIER
     ORDER BY AVG_TOTAL_SPENT DESC
-    LIMIT 100
     """
     return execute_query(query)
 
@@ -267,9 +257,8 @@ date_range = st.sidebar.selectbox(
     index=1
 )
 
-# Load transaction types and customer tiers
+# Load transaction types
 tx_types_df = load_transaction_types()
-customer_tiers_df = load_customer_tiers()
 
 # Simple transaction type filter
 if not tx_types_df.empty:
@@ -282,16 +271,7 @@ else:
     selected_tx_types = []
     st.sidebar.warning("No transaction types found")
 
-# Simple customer tier filter
-if not customer_tiers_df.empty:
-    selected_tiers = st.sidebar.multiselect(
-        "👥 Customer Tiers",
-        options=customer_tiers_df['CUSTOMER_TIER'].tolist(),
-        default=customer_tiers_df['CUSTOMER_TIER'].tolist()
-    )
-else:
-    selected_tiers = []
-    st.sidebar.warning("No customer tiers found")
+# Note: Customer tiers removed for simplicity - all tiers shown
 
 # =====================================================
 # MAIN DASHBOARD CONTENT
@@ -307,10 +287,10 @@ days_map = {
 days_back = days_map[date_range]
 
 # Load data
-if selected_tx_types and selected_tiers:
+if selected_tx_types:
     with st.spinner("Loading analytics..."):
         df_transactions = load_transaction_data(days_back, selected_tx_types)
-        df_customers = load_customer_insights(selected_tiers)
+        df_customers = load_customer_summary()  # All customer tiers
         df_metrics = load_real_time_metrics()
     
     # =====================================================
@@ -349,11 +329,12 @@ if selected_tx_types and selected_tiers:
             )
         
         with col4:
-            unique_customers = len(df_customers)
+            total_customers = df_customers['CUSTOMER_COUNT'].sum() if not df_customers.empty else 0
+            num_tiers = len(df_customers) if not df_customers.empty else 0
             st.metric(
-                "👥 Active Customers", 
-                f"{unique_customers:,}",
-                delta=f"{len(selected_tiers)} tiers selected"
+                "👥 Total Customers", 
+                f"{total_customers:,}",
+                delta=f"{num_tiers} tiers"
             )
         
         # =====================================================
@@ -420,8 +401,6 @@ if selected_tx_types and selected_tiers:
             
             with col1:
                 # Customer tier distribution
-                tier_summary = customer_tiers_df
-                
                 # Color palette for tiers
                 tier_colors = {
                     'PLATINUM': '#E6E6FA',  # Light purple
@@ -431,10 +410,10 @@ if selected_tx_types and selected_tiers:
                     'STANDARD': '#87CEEB'   # Sky blue
                 }
                 
-                colors = [tier_colors.get(tier, f'hsl({i*60}, 70%, 60%)') for i, tier in enumerate(tier_summary['CUSTOMER_TIER'])]
+                colors = [tier_colors.get(tier, f'hsl({i*60}, 70%, 60%)') for i, tier in enumerate(df_customers['CUSTOMER_TIER'])]
                 
                 fig_tiers = px.pie(
-                    tier_summary, 
+                    df_customers, 
                     values='CUSTOMER_COUNT', 
                     names='CUSTOMER_TIER',
                     title="🏆 Customer Distribution by Tier",
@@ -446,11 +425,11 @@ if selected_tx_types and selected_tiers:
             with col2:
                 # Spending by tier
                 fig_spending = px.bar(
-                    tier_summary,
+                    df_customers,
                     x='CUSTOMER_TIER',
-                    y='AVG_SPENDING',
+                    y='AVG_TOTAL_SPENT',
                     title="💎 Average Spending by Customer Tier",
-                    color='AVG_SPENDING',
+                    color='AVG_TOTAL_SPENT',
                     color_continuous_scale='viridis'
                 )
                 fig_spending.update_layout(showlegend=False)
@@ -458,7 +437,7 @@ if selected_tx_types and selected_tiers:
             
 
         else:
-            st.warning("No customer data available for the selected filters.")
+            st.warning("No customer data available.")
     
     # =====================================================
     # PII GOVERNANCE DEMONSTRATION (SEPARATE SECTION)
@@ -528,7 +507,7 @@ if selected_tx_types and selected_tiers:
         st.warning("No transaction data available for the selected filters")
 
 else:
-    st.warning("Please select at least one transaction type and customer tier to begin analysis")
+    st.warning("Please select at least one transaction type to begin analysis")
 
 # =====================================================
 # ENHANCED FOOTER WITH TECHNICAL DETAILS
