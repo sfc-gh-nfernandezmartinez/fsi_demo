@@ -211,8 +211,39 @@ GRANT CREATE PROCEDURE ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 -- 7. Verify grants
 SHOW GRANTS TO ROLE data_scientist_role;
 
+
+
 -- =====================================================
--- 8. SUMMARY
+-- EXTERNAL ACCESS INTEGRATION FOR CONTAINER RUNTIME
+-- =====================================================
+
+USE ROLE ACCOUNTADMIN;
+
+-- Create network rule for PyPI (Python package index)
+CREATE OR REPLACE NETWORK RULE pypi_network_rule
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('pypi.org', 'files.pythonhosted.org', 'pypi.python.org')
+  COMMENT = 'Allow access to PyPI for Python package installation';
+
+-- Create network rule for Conda/Anaconda
+CREATE OR REPLACE NETWORK RULE conda_network_rule
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('repo.anaconda.com', 'conda.anaconda.org', 'anaconda.org')
+  COMMENT = 'Allow access to Conda repositories for package installation';
+
+-- Create external access integration
+CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION ml_external_access
+  ALLOWED_NETWORK_RULES = (pypi_network_rule, conda_network_rule)
+  ENABLED = TRUE
+  COMMENT = 'External access for ML container runtime - PyPI and Conda';
+
+-- Grant usage to data_scientist_role
+GRANT USAGE ON INTEGRATION ml_external_access TO ROLE data_scientist_role;
+
+-- =====================================================
+-- SUMMARY
 -- =====================================================
 
 -- Show created objects
