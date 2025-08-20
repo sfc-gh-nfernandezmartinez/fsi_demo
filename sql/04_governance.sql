@@ -25,9 +25,6 @@ COMMENT = 'Data analyst role for dashboard users - sees masked PII for complianc
 GRANT ROLE data_steward TO ROLE SYSADMIN;
 GRANT ROLE data_analyst_role TO ROLE SYSADMIN;
 
--- =====================================================
--- SECTION 2: DATABASE & SCHEMA PERMISSIONS
--- =====================================================
 
 -- Data Steward permissions (full access)
 GRANT USAGE ON DATABASE FSI_DEMO TO ROLE data_steward;
@@ -38,20 +35,10 @@ GRANT USAGE ON WAREHOUSE TRANSFORMATION_WH_S TO ROLE data_steward;
 GRANT USAGE ON WAREHOUSE ANALYTICS_WH_S TO ROLE data_steward;
 
 
--- Data Analyst permissions (masked PII, minimal for demo)
-GRANT USAGE ON DATABASE FSI_DEMO TO ROLE data_analyst_role;
-GRANT USAGE ON SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_analyst_role;
-GRANT USAGE ON SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_analyst_role;
-GRANT USAGE ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_analyst_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_analyst_role;
-GRANT SELECT ON ALL VIEWS IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_analyst_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_analyst_role;
-GRANT USAGE ON WAREHOUSE TRANSFORMATION_WH_S TO ROLE data_analyst_role;
-
 
 
 -- =====================================================
--- SECTION 3: PII MASKING POLICIES (STRICT GOVERNANCE)
+-- SECTION 2: PII MASKING POLICIES (STRICT GOVERNANCE)
 -- =====================================================
 
 -- Last name masking - ONLY data_steward sees unmasked (including ACCOUNTADMIN masked)
@@ -78,15 +65,18 @@ ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
   MODIFY COLUMN phone_number SET MASKING POLICY mask_phone_partial;
 
 
--- =====================================================
--- SECTION 4: GOVERNANCE VERIFICATION & TESTING
--- =====================================================
+-- iceberg
+-- Apply masking policies to customer table
+ALTER ICEBERG TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG 
+  MODIFY COLUMN last_name SET MASKING POLICY mask_last_name;
+
+ALTER ICEBERG TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG 
+  MODIFY COLUMN phone_number SET MASKING POLICY mask_phone_partial;
 
 -- Show created policies
 SHOW MASKING POLICIES;
 
 use role data_steward;
-
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE;
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG;
 
@@ -94,6 +84,5 @@ select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG;
 use role data_analyst_role;
 
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE;
-
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG;
 
