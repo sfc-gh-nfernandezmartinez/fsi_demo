@@ -32,21 +32,21 @@ GRANT USAGE ON WAREHOUSE DEV_WH_XS TO ROLE data_steward;
 -- 2. CREATE PII MASKING POLICIES
 -- =====================================================
 
--- Full masking policy for last names
+-- Full masking policy for last names (ONLY data_steward can see unmasked)
 CREATE OR REPLACE MASKING POLICY mask_last_name AS (val STRING) RETURNS STRING ->
   CASE
-    WHEN CURRENT_ROLE() IN ('data_steward', 'ACCOUNTADMIN') THEN val
+    WHEN CURRENT_ROLE() = 'data_steward' THEN val
     ELSE '***'
   END
-COMMENT = 'Full masking of last names - only data_steward and ACCOUNTADMIN can see actual values';
+COMMENT = 'Full masking of last names - ONLY data_steward can see actual values, including ACCOUNTADMIN sees masked';
 
--- Partial masking policy for phone numbers (show last 4 digits)
+-- Partial masking policy for phone numbers (ONLY data_steward can see unmasked)
 CREATE OR REPLACE MASKING POLICY mask_phone_partial AS (val STRING) RETURNS STRING ->
   CASE
-    WHEN CURRENT_ROLE() IN ('data_steward', 'ACCOUNTADMIN') THEN val
+    WHEN CURRENT_ROLE() = 'data_steward' THEN val
     ELSE CONCAT('***-***-', RIGHT(val, 4))
   END
-COMMENT = 'Partial masking of phone numbers - shows last 4 digits only for non-privileged roles';
+COMMENT = 'Partial masking of phone numbers - ONLY data_steward sees full numbers, all others see last 4 digits';
 
 
 -- =====================================================
