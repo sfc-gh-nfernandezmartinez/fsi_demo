@@ -134,15 +134,15 @@ GRANT OPERATE ON WAREHOUSE TRANSFORMATION_WH_S TO ROLE data_engineer_role;
 GRANT USAGE ON WAREHOUSE DEV_WH_XS TO ROLE data_engineer_role;
 GRANT OPERATE ON WAREHOUSE DEV_WH_XS TO ROLE data_engineer_role;
 
+
 -- Data Analyst: Analytics, Transformation (usage only), and Development
 GRANT USAGE ON WAREHOUSE ANALYTICS_WH_S TO ROLE data_analyst_role;
 GRANT USAGE ON WAREHOUSE TRANSFORMATION_WH_S TO ROLE data_analyst_role;
 GRANT USAGE ON WAREHOUSE DEV_WH_XS TO ROLE data_analyst_role;
 
--- Remove XS_WH legacy access
-
--- Note: ML_WH_M permissions will be granted to data_scientist_role when created
--- Note: ML_WH_M removed. Data scientist will use container runtime; only DEV_WH_XS needed.
+-- Data Scientist: full access to ANALYTICS, LAB ownership, read TRANSFORMED
+GRANT USAGE ON WAREHOUSE DEV_WH_XS TO ROLE data_scientist_role;
+GRANT OPERATE ON WAREHOUSE DEV_WH_XS TO ROLE data_scientist_role;
 
 -- =====================================================
 -- 7. DATABASE AND SCHEMA PERMISSIONS
@@ -191,8 +191,6 @@ GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
-GRANT CREATE NOTEBOOK ON FUTURE SCHEMAS IN DATABASE FSI_DEMO TO ROLE data_scientist_role;
-
 -- =====================================================
 -- 8. SUMMARY
 -- =====================================================
