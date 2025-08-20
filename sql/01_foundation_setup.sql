@@ -233,9 +233,21 @@ CREATE OR REPLACE NETWORK RULE conda_network_rule
   VALUE_LIST = ('repo.anaconda.com', 'conda.anaconda.org', 'anaconda.org')
   COMMENT = 'Allow access to Conda repositories for package installation';
 
+-- Create network rule for essential ML services
+CREATE OR REPLACE NETWORK RULE ml_essential_services
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = (
+    'snowflake.com:443',
+    '*.snowflakecomputing.com:443',
+    'pypi.org:443',
+    'files.pythonhosted.org:443'
+  )
+  COMMENT = 'Essential services for ML Registry';
+
 -- Create external access integration
 CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION ml_external_access
-  ALLOWED_NETWORK_RULES = (pypi_network_rule, conda_network_rule)
+  ALLOWED_NETWORK_RULES = (pypi_network_rule, conda_network_rule, ml_essential_services)
   ENABLED = TRUE
   COMMENT = 'External access for ML container runtime - PyPI and Conda';
 
