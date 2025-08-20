@@ -195,6 +195,28 @@ GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scienti
 GRANT OWNERSHIP ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role REVOKE CURRENT GRANTS;
 GRANT USAGE ON FUTURE MODELS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role; 
 
+-- 1. Grant CREATE MODEL privilege on LAB schema
+GRANT CREATE MODEL ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+
+-- 2. Grant USAGE on SNOWFLAKE database (for ML functions)
+GRANT USAGE ON DATABASE SNOWFLAKE TO ROLE data_scientist_role;
+
+-- 3. Grant USAGE on SNOWFLAKE.ML schema (for ML Registry functions)
+GRANT USAGE ON SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
+
+-- 4. Grant EXECUTE on ML functions in SNOWFLAKE database
+GRANT USAGE ON ALL FUNCTIONS IN SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
+
+-- 5. Grant future privileges on ML functions
+GRANT USAGE ON FUTURE FUNCTIONS IN SCHEMA SNOWFLAKE.ML TO ROLE data_scientist_role;
+
+-- 6. Additional privileges for model deployment and management
+GRANT CREATE FUNCTION ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+GRANT CREATE PROCEDURE ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+
+-- 7. Verify grants
+SHOW GRANTS TO ROLE data_scientist_role;
+
 -- =====================================================
 -- 8. SUMMARY
 -- =====================================================
