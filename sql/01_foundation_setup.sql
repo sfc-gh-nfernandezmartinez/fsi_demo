@@ -50,16 +50,7 @@ CREATE OR ALTER WAREHOUSE ANALYTICS_WH_S
     SCALING_POLICY = 'STANDARD'    -- Responsive scaling for user experience
     COMMENT = 'FinOps: Small warehouse for analytics and BI with multi-cluster support';
 
--- 4. ML/Data Science Warehouse: On-demand for compute-intensive work
-CREATE OR ALTER WAREHOUSE ML_WH_M
-  WITH
-    WAREHOUSE_SIZE = 'MEDIUM'
-    AUTO_SUSPEND = 60              -- Quick suspend when not actively used  
-    AUTO_RESUME = FALSE            -- Manual control for cost management
-    MIN_CLUSTER_COUNT = 1
-    MAX_CLUSTER_COUNT = 1          -- Single cluster, manually scaled when needed
-    SCALING_POLICY = 'STANDARD'
-    COMMENT = 'FinOps: Medium warehouse for ML/data science - manual control for cost optimization';
+-- 4. ML/Data Science Warehouse: removed (data scientist uses container runtime)
 
 -- 5. Development Warehouse: Aggressive cost controls for development
 CREATE OR ALTER WAREHOUSE DEV_WH_XS
@@ -84,6 +75,10 @@ CREATE OR ALTER ROLE data_engineer_role
 CREATE OR ALTER ROLE data_analyst_role  
   COMMENT = 'Role for data analysts working with transformed data (PII masked)';
 
+-- Data Scientist Role: Analytics & LAB experiments (container runtime preferred)
+CREATE OR ALTER ROLE data_scientist_role
+  COMMENT = 'Role for data scientists with full access to ANALYTICS and ownership of LAB schema';
+
 -- =====================================================
 -- 3. ROLE HIERARCHY
 -- =====================================================
@@ -91,6 +86,7 @@ CREATE OR ALTER ROLE data_analyst_role
 -- Grant custom roles to SYSADMIN (following best practices)
 GRANT ROLE data_engineer_role TO ROLE SYSADMIN;
 GRANT ROLE data_analyst_role TO ROLE SYSADMIN;
+GRANT ROLE data_scientist_role TO ROLE SYSADMIN;
 
 -- =====================================================
 -- 4. SCHEMAS (Create if don't exist)
@@ -103,6 +99,10 @@ CREATE OR ALTER SCHEMA FSI_DEMO.TRANSFORMED
 -- ANALYTICS schema for business-ready views and ML features  
 CREATE OR ALTER SCHEMA FSI_DEMO.ANALYTICS
   COMMENT = 'Schema for business-ready analytics views and ML features';
+
+-- LAB schema for data scientist experiments (model registry, features, etc.)
+CREATE OR ALTER SCHEMA FSI_DEMO.LAB
+  COMMENT = 'Schema for data scientist experiments (features, models, registries)';
 
 -- =====================================================
 -- 5. SERVICE ACCOUNT (Single Account for Simplicity)
@@ -139,11 +139,10 @@ GRANT USAGE ON WAREHOUSE ANALYTICS_WH_S TO ROLE data_analyst_role;
 GRANT USAGE ON WAREHOUSE TRANSFORMATION_WH_S TO ROLE data_analyst_role;
 GRANT USAGE ON WAREHOUSE DEV_WH_XS TO ROLE data_analyst_role;
 
--- Both roles retain access to existing XS_WH for compatibility
-GRANT USAGE ON WAREHOUSE XS_WH TO ROLE data_engineer_role;
-GRANT USAGE ON WAREHOUSE XS_WH TO ROLE data_analyst_role;
+-- Remove XS_WH legacy access
 
 -- Note: ML_WH_M permissions will be granted to data_scientist_role when created
+-- Note: ML_WH_M removed. Data scientist will use container runtime; only DEV_WH_XS needed.
 
 -- =====================================================
 -- 7. DATABASE AND SCHEMA PERMISSIONS
@@ -154,12 +153,20 @@ GRANT USAGE ON DATABASE FSI_DEMO TO ROLE data_engineer_role;
 GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_engineer_role;
 GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_engineer_role;
 GRANT USAGE ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_engineer_role;
+GRANT USAGE ON SCHEMA FSI_DEMO.LAB TO ROLE data_engineer_role;
 
 -- Data Analyst: Read access to TRANSFORMED, full access to ANALYTICS
 GRANT USAGE ON DATABASE FSI_DEMO TO ROLE data_analyst_role;
 GRANT USAGE ON SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_analyst_role;
 GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_analyst_role;
 GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_analyst_role;
+
+-- Data Scientist: full access to ANALYTICS, LAB ownership, read TRANSFORMED
+GRANT USAGE ON DATABASE FSI_DEMO TO ROLE data_scientist_role;
+GRANT USAGE ON SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
+GRANT USAGE ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
 
 -- Grant future privileges for new objects
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_engineer_role;
@@ -173,6 +180,14 @@ GRANT SELECT ON FUTURE VIEWS IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_analyst
 
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_analyst_role;
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_analyst_role;
+
+-- Future grants for data scientist
+GRANT SELECT ON FUTURE TABLES IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 
 -- =====================================================
 -- 8. SUMMARY
