@@ -167,6 +167,9 @@ GRANT USAGE ON SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA FSI_DEMO.TRANSFORMED TO ROLE data_scientist_role;
 GRANT USAGE ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
 GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
+GRANT USAGE ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+GRANT ALL PRIVILEGES ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+GRANT CREATE NOTEBOOK ON SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 
 -- Grant future privileges for new objects
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.RAW_DATA TO ROLE data_engineer_role;
@@ -188,6 +191,7 @@ GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.ANALYTICS TO ROLE data_scientist_role;
 GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
 GRANT ALL PRIVILEGES ON FUTURE VIEWS IN SCHEMA FSI_DEMO.LAB TO ROLE data_scientist_role;
+GRANT CREATE NOTEBOOK ON FUTURE SCHEMAS IN DATABASE FSI_DEMO TO ROLE data_scientist_role;
 
 -- =====================================================
 -- 8. SUMMARY
@@ -199,6 +203,3 @@ SHOW ROLES LIKE 'data_%_role';
 SHOW USERS LIKE 'fsi_automation_service';
 SHOW SCHEMAS IN DATABASE FSI_DEMO;
 
--- Success message
-SELECT 'FSI Demo FinOps Foundation Setup Complete! 🎯🎉' AS status,
-       'Cost-optimized workload-based warehouse strategy deployed' AS details;
