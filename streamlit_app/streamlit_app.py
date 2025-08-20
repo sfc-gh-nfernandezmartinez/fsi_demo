@@ -652,7 +652,7 @@ if selected_tx_types and selected_tiers:
         
         if not df_customers.empty:
             # Enhanced customer analytics with multiple visualizations
-            tab1, tab2, tab3 = st.tabs(["📊 Tier Analytics", "💰 Spending Patterns", "🔒 PII Governance"])
+            tab1, tab2 = st.tabs(["📊 Tier Analytics", "💰 Spending Patterns"])
             
             with tab1:
                 col1, col2 = st.columns(2)
@@ -661,16 +661,16 @@ if selected_tx_types and selected_tiers:
                     # Enhanced customer tier distribution with custom colors
                     tier_summary = customer_tiers_df
                     
-                    # Custom color palette for tiers
+                    # Enhanced color palette for tiers (more distinct colors)
                     tier_colors = {
-                        'PLATINUM': '#FFD700',
-                        'GOLD': '#FFA500', 
-                        'SILVER': '#C0C0C0',
-                        'BRONZE': '#CD7F32',
-                        'STANDARD': '#808080'
+                        'PLATINUM': '#E6E6FA',  # Light purple
+                        'GOLD': '#FFD700',      # Gold
+                        'SILVER': '#C0C0C0',    # Silver
+                        'BRONZE': '#CD7F32',    # Bronze
+                        'STANDARD': '#87CEEB'   # Sky blue
                     }
                     
-                    colors = [tier_colors.get(tier, '#1f77b4') for tier in tier_summary['CUSTOMER_TIER']]
+                    colors = [tier_colors.get(tier, f'hsl({i*60}, 70%, 60%)') for i, tier in enumerate(tier_summary['CUSTOMER_TIER'])]
                     
                     fig_tiers = px.pie(
                         tier_summary, 
@@ -740,49 +740,73 @@ if selected_tx_types and selected_tiers:
                         fig_freq.update_layout(height=350)
                         st.plotly_chart(fig_freq, use_container_width=True)
             
-            with tab3:
-                # PII masking demonstration
-                st.subheader("🔒 PII Masking Policy Demonstration")
-                
-                # Show governance controls
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**🔐 Current Data Visibility:**")
-                    if current_role == 'data_steward':
-                        st.success("✅ **Full PII Access** - You can see all customer data")
-                    else:
-                        st.warning("🔒 **Masked PII** - Sensitive data is automatically hidden")
-                
-                with col2:
-                    st.markdown("**📋 Masking Rules Applied:**")
-                    st.write("• Last Name: `***` (full masking)")
-                    st.write("• Phone: `***-***-XXXX` (partial masking)")
-                    st.write("• First Name: Visible (not sensitive)")
-                
-                # Sample customer data with masking
-                st.subheader("👥 Customer Sample (Live PII Masking)")
-                sample_customers = df_customers.head(10)
-                
-                if 'LAST_NAME' in sample_customers.columns:
-                    display_cols = ['CUSTOMER_TIER', 'FIRST_NAME', 'LAST_NAME', 'PHONE_CLEAN', 'AVG_TOTAL_SPENT']
-                    available_cols = [col for col in display_cols if col in sample_customers.columns]
-                    
-                    # Format the display
-                    display_df = sample_customers[available_cols].copy()
-                    if 'AVG_TOTAL_SPENT' in display_df.columns:
-                        display_df['AVG_TOTAL_SPENT'] = display_df['AVG_TOTAL_SPENT'].apply(lambda x: f"${x:,.2f}")
-                    
-                    st.dataframe(display_df, use_container_width=True)
-                    
-                    # Show masking explanation
-                    if current_role != 'data_steward':
-                        st.info("🔍 Notice how last_name shows '***' and phone numbers are partially masked - this is automatic PII protection!")
-                    else:
-                        st.success("🔓 As data_steward, you can see the full unmasked customer data for governance purposes.")
-                else:
-                    st.warning("Customer data columns not available for PII demonstration.")
+
         else:
             st.warning("No customer data available for the selected filters.")
+    
+    # =====================================================
+    # PII GOVERNANCE DEMONSTRATION (SEPARATE SECTION)
+    # =====================================================
+    st.header("🔒 Live PII Governance Demonstration")
+    
+    # Show governance controls
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**🔐 Current Data Visibility:**")
+        if current_role == 'data_steward':
+            st.success("✅ **Full PII Access** - You can see all customer data")
+        else:
+            st.warning("🔒 **Masked PII** - Sensitive data is automatically hidden")
+    
+    with col2:
+        st.markdown("**📋 Masking Rules Applied:**")
+        st.write("• Last Name: `***` (full masking)")
+        st.write("• Phone: `***-***-XXXX` (partial masking)")
+        st.write("• First Name: Visible (not sensitive)")
+    
+    # Live customer data with masking demonstration
+    st.subheader("👥 Customer Sample (Live PII Masking)")
+    
+    # Query customer data directly to ensure we get the masked columns
+    pii_demo_query = """
+    SELECT 
+        customer_id,
+        first_name,
+        last_name,           -- This should be masked with *** for non-data_steward roles
+        phone_number,        -- This should be masked with ***-***-XXXX for non-data_steward roles
+        'Regular table access' as data_source
+    FROM FSI_DEMO.RAW_DATA.CUSTOMER_TABLE 
+    ORDER BY customer_id
+    LIMIT 10
+    """
+    
+    try:
+        pii_demo_data = execute_query(pii_demo_query)
+        
+        if not pii_demo_data.empty:
+            # Format the display
+            display_df = pii_demo_data.copy()
+            
+            st.dataframe(display_df, use_container_width=True)
+            
+            # Show masking explanation based on what we see
+            if current_role != 'data_steward':
+                # Check if data is actually masked
+                sample_last_name = display_df['LAST_NAME'].iloc[0] if 'LAST_NAME' in display_df.columns else ""
+                sample_phone = display_df['PHONE_NUMBER'].iloc[0] if 'PHONE_NUMBER' in display_df.columns else ""
+                
+                if sample_last_name == "***" or "***" in str(sample_phone):
+                    st.success("🔍 **Masking Working!** Notice how last_name shows '***' and phone numbers are masked - this is automatic PII protection!")
+                else:
+                    st.error("⚠️ **Masking Not Active** - Run sql/04_governance_complete.sql to enable PII masking policies")
+            else:
+                st.success("🔓 As data_steward, you can see the full unmasked customer data for governance purposes.")
+        else:
+            st.warning("No customer data available for PII demonstration.")
+            
+    except Exception as e:
+        st.error(f"Error loading customer data for PII demonstration: {str(e)}")
+        st.info("💡 Make sure to run sql/04_governance_complete.sql to set up governance framework")
     
     else:
         st.warning("No transaction data available for the selected filters")
