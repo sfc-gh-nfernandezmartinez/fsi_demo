@@ -16,9 +16,6 @@ USE ROLE ACCOUNTADMIN;
 -- Workload-based warehouse strategy for fine-grained cost control
 -- Naming convention: [WORKLOAD]_WH_[SIZE] for immediate cost visibility
 
--- Drop any existing suboptimal warehouses
-DROP WAREHOUSE IF EXISTS S_WH;
-DROP WAREHOUSE IF EXISTS M_WH;
 
 -- 1. Ingestion Warehouse: Fast, frequent, small jobs
 CREATE OR ALTER WAREHOUSE INGESTION_WH_XS
