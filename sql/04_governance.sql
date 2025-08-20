@@ -6,7 +6,9 @@
 -- Author: FSI Demo Project
 -- Usage: Run as ACCOUNTADMIN - Complete governance setup in one script
 
+USE ROLE ACCOUNTADMIN; 
 USE DATABASE FSI_DEMO;
+USE SCHEMA RAW_DATA;
 USE WAREHOUSE TRANSFORMATION_WH_S;
 
 -- =====================================================
@@ -41,6 +43,7 @@ GRANT USAGE ON WAREHOUSE ANALYTICS_WH_S TO ROLE data_steward;
 -- SECTION 2: PII MASKING POLICIES (STRICT GOVERNANCE)
 -- =====================================================
 
+
 -- Last name masking - ONLY data_steward sees unmasked (including ACCOUNTADMIN masked)
 CREATE OR REPLACE MASKING POLICY mask_last_name AS (val STRING) RETURNS STRING ->
   CASE
@@ -56,6 +59,17 @@ CREATE OR REPLACE MASKING POLICY mask_phone_partial AS (val STRING) RETURNS STRI
     ELSE CONCAT('***-***-', RIGHT(val, 4))
   END
 COMMENT = 'Strict PII masking: ONLY data_steward sees full phone numbers, all others see ***-***-XXXX';
+
+
+-- ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
+--   MODIFY COLUMN last_name UNSET MASKING POLICY;
+-- ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE
+--   MODIFY COLUMN phone_number UNSET MASKING POLICY;
+-- ALTER ICEBERG TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG
+--   MODIFY COLUMN last_name UNSET MASKING POLICY;
+-- ALTER ICEBERG TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG
+--   MODIFY COLUMN phone_number UNSET MASKING POLICY;
+
 
 -- Apply masking policies to customer table
 ALTER TABLE FSI_DEMO.RAW_DATA.CUSTOMER_TABLE 
@@ -86,3 +100,36 @@ use role data_analyst_role;
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE;
 select * from FSI_DEMO.RAW_DATA.CUSTOMER_TABLE_ICEBERG;
 
+-- =====================================================
+-- SECTION 3: data quality and data metric functions
+-- =====================================================
+-- Data quality uses data metric functions (DMFs), which include Snowflake-provided system DMFs and user-defined DMFs, 
+-- to monitor the state and integrity of your data. You can use DMFs to measure key metrics, such as, but not limited to, 
+-- freshness and counts that measure duplicates, NULLs, rows, and unique values.
+
+USE ROLE ACCOUNTADMIN;
+GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE data_steward;
+
+use role data_steward;
+SELECT snowflake.core.blank_count (SELECT transaction_type FROM FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE);
+
+SELECT *
+  FROM TABLE(SYSTEM$DATA_METRIC_SCAN(
+    REF_ENTITY_NAME  => 'FSI_DEMO.RAW_DATA.TRANSACTIONS_TABLE',
+    METRIC_NAME  => 'snowflake.core.blank_count',
+    ARGUMENT_NAME => 'transaction_type'
+   ));
+
+
+-- =====================================================
+-- SECTION 4: audit history
+-- =====================================================
+USE ROLE data_steward;
+
+SELECT user_name
+       , query_id
+       , query_start_time
+       , direct_objects_accessed
+       , base_objects_accessed
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+ORDER BY 1, 3 desc;
