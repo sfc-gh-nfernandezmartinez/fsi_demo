@@ -1,0 +1,12 @@
+fsi_demo:
+  outputs:
+    dev:
+      type: snowflake
+      account: ""
+      user: ""
+      warehouse: TRANSFORMATION_WH_S
+      database: FSI_DEMO
+      schema: TRANSFORMED
+      role: ACCOUNTADMIN
+      threads: 1
+  target: dev

@@ -5,10 +5,11 @@
 **/*.p8
 **/*.pem
 **/connections.toml
-**/profiles.yml
 **/*token*
 **/*password*
 **/*secret*
+
+# Note: dbt/profiles.yml is included for demo purposes (no real credentials)
 
 # User Rules - Exclude References folder (internal only)
 References/
