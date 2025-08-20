@@ -2,8 +2,17 @@
 -- FSI Demo - Data Ingestion Setup SQL Worksheet
 -- =====================================================
 -- Purpose: Complete ingestion workflow for historical and real-time data
--- Historical: Batch load from AWS S3 (JSON format)
--- Real-time: Snowpipe Streaming via Python simulator
+-- Historical: Batch load from AWS S3 (JSON format) OR Python generators
+-- Real-time: Snowpipe Streaming via Python/Java simulators
+-- 
+-- STAGE REQUIREMENTS (Simplified):
+-- • STG_EXT_AWS: External stage pointing to AWS S3 fsi-demo-nfm bucket (if using S3 data)
+-- • fsi_demo_stage: Auto-created by Streamlit deployment (SnowCLI managed)
+-- • No manual internal stages needed - Python generators insert directly
+--
+-- ALTERNATIVE APPROACH: Use Python generators instead of S3 stages
+-- • python stream_demo.py customers    (generates 5,000 customers)
+-- • python stream_demo.py historical   (generates 200k transactions)
 
 USE ROLE data_engineer_role;
 USE WAREHOUSE INGESTION_WH_XS;
@@ -87,6 +96,7 @@ COMMENT = 'Customer data in Iceberg format';
 -- 5. DATA INGESTION - MORTGAGE DATA
 -- =====================================================
 
+-- Prerequisites: STG_EXT_AWS external stage must exist pointing to AWS S3 fsi-demo-nfm bucket
 -- Load mortgage data from AWS S3
 COPY INTO MORTGAGE_TABLE (
     week_start_date, week, loan_id, ts, loan_type_name, 
@@ -112,7 +122,11 @@ ALTER TABLE MORTGAGE_TABLE_NEW RENAME TO MORTGAGE_TABLE;
 -- 6. DATA INGESTION - HISTORICAL TRANSACTIONS  
 -- =====================================================
 
--- Load historical transactions from AWS S3
+-- Prerequisites: STG_EXT_AWS external stage must exist pointing to AWS S3 fsi-demo-nfm bucket
+-- Alternative: Generate historical data using Python generators:
+-- Run: python stream_demo.py historical
+
+-- Load historical transactions from AWS S3 (if using external stage)
 COPY INTO TRANSACTIONS_TABLE (
     transaction_id, customer_id, transaction_date,
     transaction_amount, transaction_type, data_source
@@ -127,44 +141,13 @@ COPY INTO TRANSACTIONS_TABLE (
 -- 7. DATA INGESTION - CUSTOMER DATA
 -- =====================================================
 
--- Step 1: Create internal stage and file format for customer data
-CREATE OR REPLACE STAGE customer_stage 
-COMMENT = 'Internal stage for customer data JSON upload';
+-- Customer data is loaded via Python generators (no stages needed)
+-- Run: python stream_demo.py customers
+-- This generates 5,000 customers with 1:1 loan_record_id mapping
+-- Direct INSERT into tables using snowflake-connector-python
 
-CREATE OR REPLACE FILE FORMAT json_format 
-TYPE = 'JSON' 
-COMMENT = 'JSON file format for customer data';
-
--- Step 2: Upload customer data file to internal stage
--- Run this command from your local machine:
--- PUT file:///Users/nfernandezmartinez/Desktop/hands-on/cursor/fsi_demo/Cursor_Tests/customer_data.json @customer_stage AUTO_COMPRESS=FALSE;
-
--- Step 3: Load customer data into regular table
-INSERT INTO CUSTOMER_TABLE (
-    customer_id, loan_record_id, first_name, last_name, phone_number
-)
-SELECT 
-    $1:customer_id::NUMBER(38,0),
-    $1:loan_record_id::NUMBER(38,0),
-    $1:first_name::VARCHAR(255),
-    $1:last_name::VARCHAR(255),
-    $1:phone_number::VARCHAR(255)
-FROM @customer_stage/customer_data.json
-(FILE_FORMAT => json_format);
-
--- Step 4: Load customer data into Iceberg table (S3)
-INSERT INTO customer_table_iceberg (
-    customer_id, loan_record_id, first_name, last_name, phone_number, created_at
-)
-SELECT 
-    $1:customer_id::NUMBER(38,0),
-    $1:loan_record_id::NUMBER(38,0),
-    $1:first_name::STRING,
-    $1:last_name::STRING,
-    $1:phone_number::STRING,
-    CURRENT_TIMESTAMP()
-FROM @customer_stage/customer_data.json
-(FILE_FORMAT => json_format);
+-- Note: customer_table_iceberg requires external volume permissions
+-- Data is inserted programmatically via streaming/customer_generator.py
 
 
 -- =====================================================
