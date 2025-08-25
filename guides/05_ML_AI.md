@@ -17,3 +17,4 @@ Add native ML/AI for anomaly detection and advanced analytics directly in Snowfl
 - Cost visibility: serverless ML/AI consumption is itemized (see Service Consumption). Docs: https://docs.snowflake.com/en/user-guide/credits
 - Governance: ensure masked PII persists throughout ML pipelines.
 - Performance: keep input features minimal and filter early by time window.
+

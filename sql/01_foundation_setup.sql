@@ -250,7 +250,6 @@ CREATE OR REPLACE NETWORK RULE cloud_metadata_access
   MODE = EGRESS
   TYPE = HOST_PORT
   VALUE_LIST = (
-    '169.254.169.254:80',
     'metadata.google.internal:80',
     'management.azure.com:443',
     'login.microsoftonline.com:443'
